@@ -44,7 +44,7 @@ const Navigation: React.FC = () => {
           {/* Navigation Tabs */}
           <div className="flex space-x-1">
             {[
-              { key: 'home', label: 'Focus' },
+              { key: 'home', label: 'Home' },
               { key: 'sessions', label: 'Sessions' },
               { key: 'calendar', label: 'Calendar' },
               { key: 'focus-session', label: 'Focus Session' }
