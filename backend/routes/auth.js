@@ -62,6 +62,53 @@ router.post("/signout", async (req, res) => {
   }
 });
 
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
+    });
+
+    if (error) throw error;
+    res.json({ message: "Password reset email sent" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/update-password", async (req, res) => {
+  try {
+    const { password, access_token, refresh_token } = req.body;
+
+    if (!password || !access_token) {
+      return res.status(400).json({ error: "Password and access token required" });
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token: access_token,
+      refresh_token: refresh_token || ""
+    });
+
+    if (sessionError) {
+      return res.status(401).json({ error: "Invalid or expired tokens" });
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: password
+    });
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

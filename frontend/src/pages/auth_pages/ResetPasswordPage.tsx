@@ -1,69 +1,112 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const passwordRequirements = [
+  { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'One number', test: (p: string) => /\d/.test(p) },
+  { label: 'One special character', test: (p: string) => /[!@#$%^&*(),.?":{}|<>]/.test(p) },
+];
 
 const ResetPasswordPage: React.FC = () => {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
   const navigate = useNavigate();
 
-  const [ready, setReady] = useState(false);      // token processed & session ready
-  const [pw, setPw] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [done, setDone] = useState(false);
+  const passedRequirements = passwordRequirements.filter(req => req.test(password));
+  const passwordStrength = (passedRequirements.length / passwordRequirements.length) * 100;
+  const passwordsMatch = password === confirmPassword && confirmPassword !== '';
+  const allRequirementsMet = passedRequirements.length === passwordRequirements.length;
 
-  // Wait for Supabase to pick up the recovery token from the URL and create a temp session.
-  useEffect(() => {
-    let mounted = true;
+    useEffect(() => {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
 
-    (async () => {
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const tokenType = params.get('token_type');
+        const type = params.get('type');
 
-      // If detectSessionInUrl=true in your client (it is), supabase-js will handle the URL on mount.
-      // We just wait a tick and confirm a session exists (or not).
-      await new Promise((r) => setTimeout(r, 100)); // small delay so supabase can parse URL
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+        console.log('Access token:', accessToken ? 'present' : 'missing');
+        console.log('Refresh token:', refreshToken ? 'present' : 'missing');
+        console.log('Token type:', tokenType);
+        console.log('Type:', type);
 
-      if (!data.session) {
-        setErr("Invalid or expired reset link. Please request a new password reset.");
-      }
-      setReady(true);
-    })();
+        // Check if this is a valid recovery link
+        if (!accessToken || !refreshToken || type !== 'recovery') {
+            setError('Invalid or expired reset link. Please request a new password reset.');
+        }
+    }, []);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const getStrengthColor = () => {
+    if (passwordStrength < 40) return 'bg-red-500';
+    if (passwordStrength < 80) return 'bg-yellow-500';
+    return 'bg-emerald-500';
+  };
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const getStrengthText = () => {
+    if (passwordStrength < 40) return 'Weak';
+    if (passwordStrength < 80) return 'Good';
+    return 'Strong';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr("");
 
-    if (pw.length < 8) {
-      setErr("Password must be at least 8 characters.");
-      return;
-    }
-    if (pw !== confirm) {
-      setErr("Passwords do not match.");
+    if (!allRequirementsMet) {
+      setError('Password does not meet all requirements');
       return;
     }
 
+    if (!passwordsMatch) {
+      setError('Passwords do not match');
+      return;
+    }
 
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    setLoading(false);
+    setError('');
 
-    if (error) {
-      setErr(error.message);
-    } else {
-      setDone(true);
+    try {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      const response = await fetch('http://localhost:8000/api/auth/update-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          password,
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Password update failed');
+      } else {
+        setSuccess(true);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Success screen
-  if (done) {
+  if (success) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="w-full max-w-md">
@@ -71,15 +114,15 @@ const ResetPasswordPage: React.FC = () => {
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-emerald-600 text-3xl">✓</span>
             </div>
-            <h1 className="text-2xl font-bold mb-2">Password Updated</h1>
+            <h1 className="text-2xl font-bold mb-2">Password Updated!</h1>
             <p className="text-gray-600 mb-6">
-              You can now sign in with your new password.
+              Your password has been successfully updated. You can now sign in with your new password.
             </p>
             <button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate('/login')}
               className="w-full bg-gradient-to-r from-[#204972] to-[#142f4b] text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 transition-opacity"
             >
-              Back to Login
+              Go to Login
             </button>
           </div>
         </div>
@@ -87,110 +130,129 @@ const ResetPasswordPage: React.FC = () => {
     );
   }
 
-  // Waiting for token/session
-  if (!ready) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm text-center">
-            <div className="inline-block h-6 w-6 border-2 border-gray-300 border-t-[#204972] rounded-full animate-spin" />
-            <p className="text-gray-600 mt-3">Preparing secure reset…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Main form
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1
-            className="text-4xl font-bold mb-2"
-            style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif" }}
-          >
-            Set New{" "}
-            <span className="bg-gradient-to-r from-[#204972] to-[#142f4b] bg-clip-text text-transparent">
-              Password
-            </span>
+          <h1 className="text-4xl font-bold mb-2" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+            Reset <span className="bg-gradient-to-r from-[#204972] to-[#142f4b] bg-clip-text text-transparent">Password</span>
           </h1>
-          <p className="text-gray-600">Choose a strong new password</p>
+          <p className="text-gray-600">Enter your new password</p>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-          {err && (
+          {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-              {err}
+              {error}
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="pw" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 New Password
               </label>
               <div className="relative">
                 <input
-                  id="pw"
-                  type={showPw ? "text" : "password"}
-                  className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#204972] focus:border-transparent transition-all"
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Create a new password"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
+                  className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#204972] focus:border-transparent transition-all"
                   required
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPw((s) => !s)}
+                  onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
                 >
-                  {showPw ? "Hide" : "Show"}
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
+
+              {password && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Password strength</span>
+                    <span className={`text-sm font-medium ${passwordStrength < 40 ? 'text-red-500' : passwordStrength < 80 ? 'text-yellow-600' : 'text-emerald-600'}`}>
+                      {getStrengthText()}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${getStrengthColor()}`}
+                      style={{ width: `${passwordStrength}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
+            {password && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-600">Password requirements:</p>
+                {passwordRequirements.map((requirement, index) => {
+                  const isValid = requirement.test(password);
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className={`text-sm ${isValid ? 'text-emerald-600' : 'text-gray-400'}`}>
+                        {isValid ? '✓' : '○'}
+                      </span>
+                      <span className={`text-sm ${isValid ? 'text-emerald-600' : 'text-gray-500'}`}>
+                        {requirement.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div>
-              <label htmlFor="confirm" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm New Password
               </label>
               <div className="relative">
                 <input
-                  id="confirm"
-                  type={showConfirm ? "text" : "password"}
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm your new password"
                   className="w-full px-4 py-3 pr-20 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#204972] focus:border-transparent transition-all"
-                  placeholder="Confirm your password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
                   required
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirm((s) => !s)}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
                 >
-                  {showConfirm ? "Hide" : "Show"}
+                  {showConfirmPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
+
+              {confirmPassword && (
+                <div className="mt-2 text-sm">
+                  {passwordsMatch ? (
+                    <span className="text-emerald-600">✓ Passwords match</span>
+                  ) : (
+                    <span className="text-red-500">✗ Passwords do not match</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !allRequirementsMet || !passwordsMatch}
               className="w-full bg-gradient-to-r from-[#204972] to-[#142f4b] text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading && (
                 <span className="inline-block h-5 w-5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
               )}
-              {loading ? "Updating…" : "Update Password"}
+              {loading ? 'Updating Password...' : 'Update Password'}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <Link to="/login" className="text-[#204972] hover:text-[#142f4b] font-medium transition-colors">
-              Back to login
-            </Link>
-          </div>
         </div>
       </div>
     </div>

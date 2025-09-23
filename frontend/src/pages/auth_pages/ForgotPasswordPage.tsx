@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,26 +12,22 @@ const ForgotPasswordPage: React.FC = () => {
     setErr('');
     setLoading(true);
 
-    if (!isSupabaseConfigured || !supabase) {
-      setErr('Supabase is not configured.');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const response = await fetch('http://localhost:8000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
       });
 
-      if (error) {
-        setErr(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErr(data.error || 'Failed to send reset email');
       } else {
         setOk(true);
       }
-    } catch (e: unknown) {
-      const message =
-        e instanceof Error ? e.message : 'Unexpected error. Please try again.';
-      setErr(message);
+    } catch {
+      setErr('Network error. Please try again.');
     } finally {
       setLoading(false);
     }

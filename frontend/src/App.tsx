@@ -8,9 +8,9 @@ import FocusSessionPage from './pages/FocusSessionPage';
 import LoginPage from './pages/auth_pages/LoginPage';
 import SignupPage from './pages/auth_pages/SignUpPage';
 import ForgotPasswordPage from './pages/auth_pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth_pages/ResetPasswordPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
+import ResetPasswordPage from "./pages/auth_pages/ResetPasswordPage";
 import './App.css';
 
 const App: React.FC = () => {
@@ -32,6 +32,7 @@ const App: React.FC = () => {
         <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" replace />} />
         <Route path="/forgot-password" element={!user ? <ForgotPasswordPage /> : <Navigate to="/" replace />} />
         <Route path="/reset-password" element={!user ? <ResetPasswordPage /> : <Navigate to="/" replace />} />
+
 
         {/* Protected routes */}
         <Route
