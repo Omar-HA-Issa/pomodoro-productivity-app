@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ScheduleItem {
   id: string;
@@ -26,38 +27,26 @@ interface StatsData {
  * Displays welcome message, quick actions, schedule, stats, and session templates
  */
 const HomePage: React.FC = () => {
-  // Mock data - in a real app, this would come from props or context
+  const { user } = useAuth();
+  const firstName =
+    (user as any)?.user_metadata?.first_name ||
+    (user as any)?.user_metadata?.firstName ||
+    '';
+
+  // Mock data
   const todaysSchedule: ScheduleItem[] = [
-    {
-      id: '1',
-      time: '09:00',
-      title: 'Morning Deep Work',
-      duration: '50 min',
-      type: 'focus'
-    },
-    {
-      id: '2',
-      time: '10:30',
-      title: 'Code Review',
-      duration: '25 min',
-      type: 'focus'
-    },
-    {
-      id: '3',
-      time: '11:00',
-      title: 'Coffee Break',
-      duration: '15 min',
-      type: 'break'
-    }
+    { id: '1', time: '09:00', title: 'Morning Deep Work', duration: '50 min', type: 'focus' },
+    { id: '2', time: '10:30', title: 'Code Review',        duration: '25 min', type: 'focus' },
+    { id: '3', time: '11:00', title: 'Coffee Break',        duration: '15 min', type: 'break' }
   ];
 
   const sessionTemplates: SessionTemplate[] = [
-    { id: '1', title: 'Deep Work', description: '50m focus / 10m break' },
-    { id: '2', title: 'Classic Pomodoro', description: '25m focus / 5m break × 4' },
-    { id: '3', title: 'Reading Session', description: '25m focus / 5m break × 4' },
-    { id: '4', title: 'Coding Sprint', description: '45m focus / 15m break' },
-    { id: '5', title: 'Quick Focus', description: '15m focus / 3m break' },
-    { id: '6', title: 'Long Study', description: '90m focus / 20m break' }
+    { id: '1', title: 'Deep Work',         description: '50m focus / 10m break' },
+    { id: '2', title: 'Classic Pomodoro',  description: '25m focus / 5m break × 4' },
+    { id: '3', title: 'Reading Session',   description: '25m focus / 5m break × 4' },
+    { id: '4', title: 'Coding Sprint',     description: '45m focus / 15m break' },
+    { id: '5', title: 'Quick Focus',       description: '15m focus / 3m break' },
+    { id: '6', title: 'Long Study',        description: '90m focus / 20m break' }
   ];
 
   const stats: StatsData = {
@@ -68,17 +57,14 @@ const HomePage: React.FC = () => {
   };
 
   const handleQuickAction = (action: string) => {
-    // In a real app, these would trigger actual functionality
     console.log(`Quick action: ${action}`);
   };
 
   const handleStartSession = (sessionId: string) => {
-    // In a real app, this would navigate to Focus Session with the selected template
     console.log(`Starting session: ${sessionId}`);
   };
 
   const handleTemplateClick = (templateId: string) => {
-    // In a real app, this would open the Focus Session tab with preset values
     console.log(`Template selected: ${templateId}`);
   };
 
@@ -86,36 +72,36 @@ const HomePage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Welcome Section */}
       <div className="bg-gray-50 rounded-2xl p-8 mb-8">
-        <h2 className="text-4xl font-bold text-gray-900 mb-4">Welcome to FocusFlow</h2>
+        <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          {firstName ? `Welcome, ${firstName}` : 'Welcome 👋'}
+        </h2>
         <p className="text-xl text-gray-600">
-          Boost your productivity with focused work sessions using the{" "}
+          Boost your productivity with focused work sessions using the{' '}
           <span className="bg-gradient-to-r from-[#204972] to-[#142f4b] bg-clip-text text-transparent font-semibold">
             Pomodoro Technique
           </span>
-
         </p>
-
       </div>
 
       {/* Quick Start Section */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">Quick Start</h3>
         <div className="flex flex-wrap gap-4">
-          <button 
+          <button
             onClick={() => handleQuickAction('focus')}
             className="bg-gradient-to-r from-[#204972] to-[#142f4b] text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2"
           >
             <span>▶</span>
             Start Focus
           </button>
-          <button 
+          <button
             onClick={() => handleQuickAction('break')}
             className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2"
           >
             <span>☕</span>
             Start Break
           </button>
-          <button 
+          <button
             onClick={() => handleQuickAction('new-session')}
             className="bg-white text-[#204972] px-6 py-3 rounded-xl font-medium border border-gray-200 hover:bg-[#f5f7fa] transition-all duration-200 flex items-center gap-2"
           >
@@ -132,16 +118,14 @@ const HomePage: React.FC = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Today's Schedule</h3>
           <div className="space-y-3">
             {todaysSchedule.map((item) => (
-              <div 
+              <div
                 key={item.id}
                 className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`w-2 h-2 rounded-full ${
-                        item.type === 'focus' ? 'bg-[#204972]' : 'bg-emerald-500'
-                      }`}></span>
+                      <span className={`w-2 h-2 rounded-full ${item.type === 'focus' ? 'bg-[#204972]' : 'bg-emerald-500'}`}></span>
                       <span className="text-sm text-gray-500">{item.time}</span>
                     </div>
                     <h4 className="font-medium text-gray-900">{item.title}</h4>
@@ -149,7 +133,7 @@ const HomePage: React.FC = () => {
                       {item.duration} • {item.type === 'focus' ? 'Focus' : 'Break'}
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleStartSession(item.id)}
                     className="text-[#204972] hover:bg-[#f5f7fa] px-3 py-1 rounded-lg text-sm font-medium transition-colors"
                   >
@@ -177,8 +161,8 @@ const HomePage: React.FC = () => {
                   </div>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full" 
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full"
                     style={{ width: '83%' }}
                   ></div>
                 </div>
@@ -218,7 +202,7 @@ const HomePage: React.FC = () => {
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Session Templates</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {sessionTemplates.map((template) => (
-                <div 
+                <div
                   key={template.id}
                   onClick={() => handleTemplateClick(template.id)}
                   className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
