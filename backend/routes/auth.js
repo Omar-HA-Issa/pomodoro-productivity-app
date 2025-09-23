@@ -3,7 +3,7 @@ const supabase = require("../database");
 
 router.post("/signup", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, first_name, last_name } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
     }
@@ -11,6 +11,12 @@ router.post("/signup", async (req, res) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          first_name: first_name || null,
+          last_name: last_name || null,
+        }
+      }
     });
 
     if (error) throw error;
@@ -55,5 +61,7 @@ router.post("/signout", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
 
 module.exports = router;

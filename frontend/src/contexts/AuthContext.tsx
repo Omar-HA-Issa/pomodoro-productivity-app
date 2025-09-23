@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, metadata?: { first_name?: string; last_name?: string }) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -78,23 +78,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, metadata?: { first_name?: string; last_name?: string }) => {
     try {
       const response = await fetch(`${API_BASE}/api/auth/signup`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          email,
+          password,
+          first_name: metadata?.first_name,
+          last_name: metadata?.last_name
+        })
       });
 
       const data = await response.json();
-
       if (!response.ok) {
-        return { error: data.error || 'Signup failed' };
+        return {error: data.error || 'Signup failed'};
       }
-
       return {};
     } catch {
-      return { error: 'Network error. Please try again.' };
+      return {error: 'Network error. Please try again.'};
     }
   };
 

@@ -42,9 +42,9 @@ const SignupPage: React.FC = () => {
 
     // IMPORTANT: your AuthContext.signUp should forward this 3rd argument
     // into Supabase signUp options.data
-    const { error } = await signUp(email, pw, {
+    const {error} = await signUp(email, pw, {
       first_name: firstName.trim(),
-      last_name: lastName.trim() || null,
+      last_name: lastName.trim() === '' ? undefined : lastName.trim(),
     });
 
     setLoading(false);

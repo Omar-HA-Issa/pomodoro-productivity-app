@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const Navigation: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
 
   const getActiveTab = () => {
     switch (location.pathname) {
@@ -29,12 +29,6 @@ const Navigation: React.FC = () => {
   const handleSignOut = async () => { await signOut(); };
 
   const activeTab = getActiveTab();
-  const firstName =
-    (user as any)?.user_metadata?.first_name ||
-    (user as any)?.user_metadata?.firstName ||
-    '';
-
-  const displayIdentity = firstName || user?.email || '';
 
   return (
     <nav className="sticky top-0 bg-white border-b border-gray-200 z-50">
@@ -70,8 +64,7 @@ const Navigation: React.FC = () => {
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">{displayIdentity}</span>
+          <div className="flex items-center">
             <button
               onClick={handleSignOut}
               className="text-sm text-[#204972] hover:text-[#142f4b] font-medium"
