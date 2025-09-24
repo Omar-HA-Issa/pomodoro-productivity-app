@@ -8,7 +8,7 @@ const sessionsRouter = require("./routes/sessions");
 const scheduleRouter = require("./routes/schedule");
 
 const app = express();
-const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:5176")
+const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:5174")
   .split(",")
   .map(s => s.trim());
 
