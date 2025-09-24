@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import Lottie from 'lottie-react';
 import animationData from '../../assets/animation.json';
 
-const LoginPage: React.FC = () => {
+const Login: React.FC = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -155,4 +155,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default Login;

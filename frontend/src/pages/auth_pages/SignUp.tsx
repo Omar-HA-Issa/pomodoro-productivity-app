@@ -9,7 +9,7 @@ const requirements = [
   { label: 'One special character', test: (p: string) => /[!@#$%^&*(),.?":{}|<>]/.test(p) },
 ];
 
-const SignupPage: React.FC = () => {
+const SignUp: React.FC = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -235,4 +235,4 @@ const SignupPage: React.FC = () => {
   );
 };
 
-export default SignupPage;
+export default SignUp;

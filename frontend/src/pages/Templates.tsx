@@ -1,41 +1,96 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
+// Types
 interface Session {
   id: string;
-  user_id: string;
   name: string;
   focus_duration: number;
   break_duration: number;
-  description: string;
-  created_at: string;
-  updated_at: string;
+  description: string | null;
 }
+
 type SessionFormData = Pick<
   Session,
   "name" | "focus_duration" | "break_duration" | "description"
 >;
 
-const SessionsPage: React.FC = () => {
+// Constants
+const DEFAULT_FORM: SessionFormData = {
+  name: "",
+  focus_duration: 25,
+  break_duration: 5,
+  description: "",
+};
+
+// Small UI pieces
+const DurationControl: React.FC<{
+  label: string;
+  value: number;
+  onInc: () => void;
+  onDec: () => void;
+}> = ({ label, value, onInc, onDec }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+    <div className="flex items-center justify-center gap-4">
+      <button
+        type="button"
+        onClick={onDec}
+        className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
+        aria-label={`decrease ${label}`}
+      >
+        −
+      </button>
+      <span className="text-xl font-semibold text-gray-900 w-16 text-center">{value}</span>
+      <button
+        type="button"
+        onClick={onInc}
+        className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
+        aria-label={`increase ${label}`}
+      >
+        +
+      </button>
+    </div>
+  </div>
+);
+
+const ConfirmDialog: React.FC<{
+  open: boolean;
+  title: string;
+  message: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}> = ({ open, title, message, onCancel, onConfirm }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Cancel</button>
+          <button onClick={onConfirm} className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Templates: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<SessionFormData>({
-    name: "",
-    focus_duration: 25,
-    break_duration: 5,
-    description: "",
-  });
-
+  const [formData, setFormData] = useState<SessionFormData>(DEFAULT_FORM);
   const [editing, setEditing] = useState<Session | null>(null);
 
-  // confirmation dialog state
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,19 +112,14 @@ const SessionsPage: React.FC = () => {
   const setField = (field: keyof SessionFormData, value: string | number) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
-  const tweak = (field: "focus_duration" | "break_duration", up: boolean) => {
-    const v = formData[field];
-    setField(field, up ? v + 5 : Math.max(5, v - 5));
-  };
+  const tweak = (
+    field: "focus_duration" | "break_duration",
+    up: boolean
+  ) => setField(field, Math.max(5, (formData[field] || 0) + (up ? 5 : -5)));
 
   const resetForm = () => {
     setEditing(null);
-    setFormData({
-      name: "",
-      focus_duration: 25,
-      break_duration: 5,
-      description: "",
-    });
+    setFormData(DEFAULT_FORM);
   };
 
   const onSave = async () => {
@@ -78,19 +128,18 @@ const SessionsPage: React.FC = () => {
       setSubmitting(true);
       setError(null);
 
-      const body = JSON.stringify({
-        name: formData.name.trim(),
-        focus_duration: formData.focus_duration,
-        break_duration: formData.break_duration,
-        description: formData.description.trim() || null,
-      });
-
       const isEdit = Boolean(editing);
       const url = isEdit ? `/sessions/${editing!.id}` : "/sessions";
       const method = isEdit ? "PUT" : "POST";
 
-      const saved = await api<Session>(url, { method, body });
+      const body = JSON.stringify({
+        name: formData.name.trim(),
+        focus_duration: formData.focus_duration,
+        break_duration: formData.break_duration,
+        description: formData.description?.toString().trim() || null,
+      });
 
+      const saved = await api<Session>(url, { method, body });
       setSessions((prev) =>
         isEdit ? prev.map((s) => (s.id === saved.id ? saved : s)) : [saved, ...prev]
       );
@@ -102,9 +151,9 @@ const SessionsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
+  const askDelete = (id: string) => {
     setDeleteId(id);
-    setShowConfirm(true);
+    setConfirmOpen(true);
   };
 
   const confirmDelete = async () => {
@@ -117,12 +166,15 @@ const SessionsPage: React.FC = () => {
     } catch {
       setError("Failed to delete session");
     } finally {
-      setShowConfirm(false);
+      setConfirmOpen(false);
       setDeleteId(null);
     }
   };
 
-  if (loading) {
+  const startSession = (session: Session) =>
+    navigate(`/focus-session?template=${session.id}`);
+
+  if (loading)
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-center py-12">
@@ -130,34 +182,24 @@ const SessionsPage: React.FC = () => {
         </div>
       </div>
     );
-  }
 
   const isValid =
-    formData.name.trim() &&
-    formData.focus_duration > 0 &&
-    formData.break_duration > 0;
+    formData.name.trim() && formData.focus_duration > 0 && formData.break_duration > 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-          {error}
-        </div>
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">{error}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Form */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            {editing ? "Edit Session" : "Create Session"}
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">{editing ? "Edit Session" : "Create Session"}</h2>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
             <div>
-              <label
-                htmlFor="session-name"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
+              <label htmlFor="session-name" className="block text-sm font-medium text-gray-700 mb-2">
                 Session Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -171,75 +213,34 @@ const SessionsPage: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Focus Duration (minutes)
-              </label>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => tweak("focus_duration", false)}
-                  className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
-                >
-                  −
-                </button>
-                <span className="text-xl font-semibold text-gray-900 w-16 text-center">
-                  {formData.focus_duration}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => tweak("focus_duration", true)}
-                  className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            <DurationControl
+              label="Focus Duration (minutes)"
+              value={formData.focus_duration}
+              onDec={() => tweak("focus_duration", false)}
+              onInc={() => tweak("focus_duration", true)}
+            />
+
+            <DurationControl
+              label="Break Duration (minutes)"
+              value={formData.break_duration}
+              onDec={() => tweak("break_duration", false)}
+              onInc={() => tweak("break_duration", true)}
+            />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Break Duration (minutes)
-              </label>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => tweak("break_duration", false)}
-                  className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
-                >
-                  −
-                </button>
-                <span className="text-xl font-semibold text-gray-900 w-16 text-center">
-                  {formData.break_duration}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => tweak("break_duration", true)}
-                  className="w-10 h-10 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#204972]"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="session-description"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
+              <label htmlFor="session-description" className="block text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
               <textarea
                 id="session-description"
                 placeholder="Optional description…"
-                value={formData.description}
+                value={formData.description || ""}
                 onChange={(e) => setField("description", e.target.value)}
                 rows={4}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#204972] focus:border-transparent resize-none"
                 maxLength={500}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.description.length}/500 characters
-              </p>
+              <p className="text-xs text-gray-500 mt-1">{(formData.description || "").length}/500 characters</p>
             </div>
 
             <div className="flex gap-3">
@@ -276,12 +277,8 @@ const SessionsPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <span className="text-2xl text-gray-400">+</span>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No sessions yet
-                </h3>
-                <p className="text-gray-600">
-                  Create your first session template to get started.
-                </p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No sessions yet</h3>
+                <p className="text-gray-600">Create your first session template to get started.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -289,24 +286,14 @@ const SessionsPage: React.FC = () => {
                   <div
                     key={s.id}
                     className={`border rounded-xl p-4 transition-all hover:shadow-sm ${
-                      editing?.id === s.id
-                        ? "border-[#204972] bg-blue-50"
-                        : "border-gray-100"
+                      editing?.id === s.id ? "border-[#204972] bg-blue-50" : "border-gray-100"
                     }`}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-900 mb-1">{s.name}</h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {s.focus_duration}min focus • {s.break_duration}min break
-                        </p>
-                        <p className="text-xs text-gray-500 mb-2">
-                          Created {new Date(s.created_at).toLocaleDateString()}
-                        </p>
                         {s.description && (
-                          <p className="text-sm text-gray-500 bg-gray-50 p-2 rounded-lg">
-                            {s.description}
-                          </p>
+                          <p className="text-sm text-gray-500 bg-gray-50 p-2 rounded-lg mb-3">{s.description}</p>
                         )}
                       </div>
 
@@ -326,12 +313,39 @@ const SessionsPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDeleteClick(s.id)}
+                          onClick={() => askDelete(s.id)}
                           className="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
                         >
                           Delete
                         </button>
                       </div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {s.focus_duration}min focus
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                          </svg>
+                          {s.break_duration}min break
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => startSession(s)}
+                        className="bg-gradient-to-r from-[#204972] to-[#142f4b] text-white py-2 px-4 rounded-lg font-medium hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Start Session
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -341,36 +355,15 @@ const SessionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg max-w-sm w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete Session
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this session?
-            </p>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete Session"
+        message="Are you sure you want to delete this session?"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };
 
-export default SessionsPage;
+export default Templates;

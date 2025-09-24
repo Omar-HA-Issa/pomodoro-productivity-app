@@ -23,10 +23,10 @@ interface StatsData {
 }
 
 /**
- * HomePage component - Dashboard overview for the Pomodoro application
+ * Dashboard component - Dashboard overview for the Pomodoro application
  * Displays welcome message, quick actions, schedule, stats, and session templates
  */
-const HomePage: React.FC = () => {
+const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const firstName =
     (user as any)?.user_metadata?.first_name ||
@@ -220,4 +220,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage;
+export default Dashboard;

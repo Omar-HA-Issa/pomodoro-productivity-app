@@ -16,10 +16,10 @@ interface ScheduleFormData {
 }
 
 /**
- * CalendarPage component - Scheduling functionality for Pomodoro sessions
+ * Schedule component - Scheduling functionality for Pomodoro sessions
  * Allows users to schedule sessions on specific dates and times
  */
-const CalendarPage: React.FC = () => {
+const Schedule: React.FC = () => {
   // State for managing scheduled sessions
   const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
 
@@ -373,4 +373,4 @@ const CalendarPage: React.FC = () => {
   );
 };
 
-export default CalendarPage;
+export default Schedule;

@@ -1,16 +1,16 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import HomePage from './pages/HomePage';
-import SessionsPage from './pages/SessionsPage';
-import CalendarPage from './pages/CalendarPage';
-import FocusSessionPage from './pages/FocusSessionPage';
-import LoginPage from './pages/auth_pages/LoginPage';
-import SignupPage from './pages/auth_pages/SignUpPage';
-import ForgotPasswordPage from './pages/auth_pages/ForgotPasswordPage';
+import Dashboard from './pages/Dashboard';
+import Templates from './pages/Templates';
+import Schedule from './pages/Schedule';
+import FocusPage from './pages/FocusPage';
+import Login from './pages/auth_pages/Login';
+import SignUp from './pages/auth_pages/SignUp';
+import ForgotPassword from './pages/auth_pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './contexts/AuthContext';
-import ResetPasswordPage from "./pages/auth_pages/ResetPasswordPage";
+import ResetPassword from "./pages/auth_pages/ResetPassword";
 import './App.css';
 
 const App: React.FC = () => {
@@ -28,10 +28,10 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-white">
       <Routes>
         {/* Public routes */}
-        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" replace />} />
-        <Route path="/forgot-password" element={!user ? <ForgotPasswordPage /> : <Navigate to="/" replace />} />
-        <Route path="/reset-password" element={!user ? <ResetPasswordPage /> : <Navigate to="/" replace />} />
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+        <Route path="/signup" element={!user ? <SignUp /> : <Navigate to="/" replace />} />
+        <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" replace />} />
+        <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/" replace />} />
 
 
         {/* Protected routes */}
@@ -42,10 +42,10 @@ const App: React.FC = () => {
               <Navigation />
               <main className="pb-8">
                 <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/sessions" element={<SessionsPage />} />
-                  <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/focus-session" element={<FocusSessionPage />} />
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/sessions" element={<Templates />} />
+                  <Route path="/calendar" element={<Schedule />} />
+                  <Route path="/focus-session" element={<FocusPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

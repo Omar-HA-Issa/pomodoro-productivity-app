@@ -20,7 +20,7 @@ interface SessionTemplate {
   cycles_before_long_break: number;
 }
 
-const FocusSessionPage: React.FC = () => {
+const FocusPage: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerState>({
     time: 25 * 60,
     isRunning: false,
@@ -304,7 +304,7 @@ const FocusSessionPage: React.FC = () => {
   };
 
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-white overflow-y-auto' : 'max-w-4xl mx-auto'} px-4 sm:px-6 lg:px-8 py-8`}>
+    <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#204972] to-[#142f4b] overflow-y-auto' : 'max-w-4xl mx-auto'} px-4 sm:px-6 lg:px-8 py-8`}>
       {/* Session Completion Message */}
       {showCompletionMessage && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl shadow-lg z-50 animate-bounce">
@@ -320,9 +320,9 @@ const FocusSessionPage: React.FC = () => {
         </div>
       )}
 
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Focus Session</h2>
-        <p className="text-lg text-gray-600">
+      <div className={`text-center mb-8 ${isFullscreen ? 'text-white' : ''}`}>
+        <h2 className={`text-3xl font-bold mb-2 ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>Focus Session</h2>
+        <p className={`text-lg ${isFullscreen ? 'text-gray-200' : 'text-gray-600'}`}>
           Dedicated environment for deep work with automatic cycle switching
         </p>
       </div>
@@ -403,10 +403,10 @@ const FocusSessionPage: React.FC = () => {
           </svg>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-sm font-medium text-gray-600 mb-2">
+            <div className={`text-sm font-medium mb-2 ${isFullscreen ? 'text-gray-200' : 'text-gray-600'}`}>
               {timerState.currentPhase}
             </div>
-            <div className="text-5xl font-bold text-gray-900 tracking-tight font-sans">
+            <div className={`text-5xl font-bold tracking-tight font-mono ${isFullscreen ? 'text-white drop-shadow-lg' : 'text-gray-900'}`}>
               {formatTime(timerState.time)}
             </div>
           </div>
@@ -473,7 +473,7 @@ const FocusSessionPage: React.FC = () => {
           </button>
         </div>
 
-        <div className="text-sm text-gray-600 mb-4">
+        <div className={`text-sm mb-4 ${isFullscreen ? 'text-white' : 'text-gray-600'}`}>
           Cycle {timerState.currentCycle} of {timerState.targetCycles}
         </div>
 
@@ -489,7 +489,7 @@ const FocusSessionPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Focus Tips - Hide in fullscreen for minimal distraction */}
+      {/* Focus Tips */}
       {!isFullscreen && (
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Focus Session Tips</h3>
@@ -505,4 +505,4 @@ const FocusSessionPage: React.FC = () => {
   );
 };
 
-export default FocusSessionPage;
+export default FocusPage;
