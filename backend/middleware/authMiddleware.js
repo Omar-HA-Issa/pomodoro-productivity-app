@@ -1,4 +1,4 @@
-const supabase = require('../database');
+const { supabase } = require('../database'); // Import only supabase for auth
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -15,9 +15,6 @@ const requireAuth = async (req, res, next) => {
     if (error || !user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
-
-    // Set the user context for RLS
-    req.supabase = supabase.auth.setSession({ access_token: token, refresh_token: '' });
 
     req.user = user;
     next();

@@ -1,31 +1,40 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { sessionsAPI } from "../lib/api";
 
-// Types
-interface Session {
+// ---- Types ----
+export interface Session {
   id: string;
   name: string;
   focus_duration: number;
   break_duration: number;
   description: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-type SessionFormData = Pick<
+type SessionWrite = Pick<
   Session,
   "name" | "focus_duration" | "break_duration" | "description"
 >;
 
-// Constants
-const DEFAULT_FORM: SessionFormData = {
+// Payload expected by API (description optional, not null)
+type ApiPayload = {
+  name: string;
+  focus_duration: number;
+  break_duration: number;
+  description?: string; // optional, undefined when empty
+};
+
+const DEFAULT_FORM: SessionWrite = {
   name: "",
   focus_duration: 25,
   break_duration: 5,
-  description: "",
+  description: null,
 };
 
-// Small UI pieces
+// ---- Small UI ----
 const DurationControl: React.FC<{
   label: string;
   value: number;
@@ -87,20 +96,21 @@ const Templates: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<SessionFormData>(DEFAULT_FORM);
+  const [formData, setFormData] = useState<SessionWrite>(DEFAULT_FORM);
   const [editing, setEditing] = useState<Session | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // ---- Data load ----
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await api<Session[]>("/sessions");
-        setSessions(data || []);
+        const data = (await sessionsAPI.getAll()) as Session[] | null | undefined;
+        setSessions((data ?? []) as Session[]);
       } catch {
         setError("Failed to load sessions");
       } finally {
@@ -109,40 +119,50 @@ const Templates: React.FC = () => {
     })();
   }, [user]);
 
-  const setField = (field: keyof SessionFormData, value: string | number) =>
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // ---- Helpers ----
+  const setField = (
+    field: keyof SessionWrite,
+    value: string | number | null
+  ) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   const tweak = (
     field: "focus_duration" | "break_duration",
     up: boolean
-  ) => setField(field, Math.max(5, (formData[field] || 0) + (up ? 5 : -5)));
+  ) => setField(field, Math.max(5, (formData[field] ?? 0) + (up ? 5 : -5)));
 
   const resetForm = () => {
     setEditing(null);
     setFormData(DEFAULT_FORM);
   };
 
+  // ---- CRUD ----
   const onSave = async () => {
     if (!formData.name.trim()) return;
     try {
       setSubmitting(true);
       setError(null);
 
-      const isEdit = Boolean(editing);
-      const url = isEdit ? `/sessions/${editing!.id}` : "/sessions";
-      const method = isEdit ? "PUT" : "POST";
-
-      const body = JSON.stringify({
+      const desc = formData.description?.toString().trim() || "";
+      const payload: ApiPayload = {
         name: formData.name.trim(),
-        focus_duration: formData.focus_duration,
-        break_duration: formData.break_duration,
-        description: formData.description?.toString().trim() || null,
+        focus_duration: Number(formData.focus_duration) || 0,
+        break_duration: Number(formData.break_duration) || 0,
+        ...(desc ? { description: desc } : {}),
+      };
+
+      const saved = (
+        editing
+          ? await sessionsAPI.update(editing.id, payload)
+          : await sessionsAPI.create(payload)
+      ) as Session;
+
+      setSessions((prev: Session[]) => {
+        const next: Session[] = editing
+          ? prev.map((s) => (s.id === saved.id ? { ...s, ...saved } : s))
+          : [saved, ...prev];
+        return next;
       });
 
-      const saved = await api<Session>(url, { method, body });
-      setSessions((prev) =>
-        isEdit ? prev.map((s) => (s.id === saved.id ? saved : s)) : [saved, ...prev]
-      );
       resetForm();
     } catch {
       setError("Failed to save session");
@@ -160,8 +180,8 @@ const Templates: React.FC = () => {
     if (!deleteId) return;
     try {
       setError(null);
-      await api(`/sessions/${deleteId}`, { method: "DELETE" });
-      setSessions((prev) => prev.filter((s) => s.id !== deleteId));
+      await sessionsAPI.delete(deleteId);
+      setSessions((prev: Session[]) => prev.filter((s) => s.id !== deleteId));
       if (editing?.id === deleteId) resetForm();
     } catch {
       setError("Failed to delete session");
@@ -184,7 +204,9 @@ const Templates: React.FC = () => {
     );
 
   const isValid =
-    formData.name.trim() && formData.focus_duration > 0 && formData.break_duration > 0;
+    formData.name.trim().length > 0 &&
+    Number(formData.focus_duration) > 0 &&
+    Number(formData.break_duration) > 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -215,14 +237,14 @@ const Templates: React.FC = () => {
 
             <DurationControl
               label="Focus Duration (minutes)"
-              value={formData.focus_duration}
+              value={Number(formData.focus_duration) || 0}
               onDec={() => tweak("focus_duration", false)}
               onInc={() => tweak("focus_duration", true)}
             />
 
             <DurationControl
               label="Break Duration (minutes)"
-              value={formData.break_duration}
+              value={Number(formData.break_duration) || 0}
               onDec={() => tweak("break_duration", false)}
               onInc={() => tweak("break_duration", true)}
             />
@@ -235,7 +257,7 @@ const Templates: React.FC = () => {
                 id="session-description"
                 placeholder="Optional description…"
                 value={formData.description || ""}
-                onChange={(e) => setField("description", e.target.value)}
+                onChange={(e) => setField("description", e.target.value || null)}
                 rows={4}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#204972] focus:border-transparent resize-none"
                 maxLength={500}
@@ -305,7 +327,7 @@ const Templates: React.FC = () => {
                               name: s.name,
                               focus_duration: s.focus_duration,
                               break_duration: s.break_duration,
-                              description: s.description || "",
+                              description: s.description,
                             });
                           }}
                           className="text-[#204972] hover:bg-[#f5f7fa] px-3 py-1 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#204972] focus:ring-offset-1"

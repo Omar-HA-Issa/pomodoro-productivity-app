@@ -1,29 +1,21 @@
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+const { db } = require('../database'); // Import SQLite db
 const router = express.Router();
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // GET /api/timer/active - Check for active timer session
 router.get('/active', async (req, res) => {
   try {
-    const userId = req.user.id; // From your auth middleware
+    const userId = req.user.id;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('completed', false)
-      .single();
+    const stmt = db.prepare(`
+      SELECT * FROM timer_sessions 
+      WHERE user_id = ? AND completed = FALSE
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const activeSession = stmt.get(userId);
 
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    res.json(data || null);
+    res.json(activeSession || null);
   } catch (error) {
     console.error('Error fetching active session:', error);
     res.status(500).json({ error: 'Failed to fetch active session' });
@@ -42,25 +34,29 @@ router.post('/start', async (req, res) => {
       target_cycles = 4
     } = req.body;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .insert({
-        user_id: userId,
-        session_template_id,
-        duration_minutes,
-        phase,
-        current_cycle,
-        target_cycles,
-        completed: false,
-        paused: false,
-        start_time: new Date().toISOString()
-      })
-      .select()
-      .single();
+    const stmt = db.prepare(`
+      INSERT INTO timer_sessions (
+        user_id, session_template_id, duration_minutes, phase, 
+        current_cycle, target_cycles, completed, paused, start_time
+      )
+      VALUES (?, ?, ?, ?, ?, ?, FALSE, FALSE, ?)
+    `);
 
-    if (error) throw error;
+    const result = stmt.run(
+      userId,
+      session_template_id || null,
+      duration_minutes,
+      phase,
+      current_cycle,
+      target_cycles,
+      new Date().toISOString()
+    );
 
-    res.status(201).json(data);
+    // Get the created timer session
+    const getStmt = db.prepare('SELECT * FROM timer_sessions WHERE id = ?');
+    const timerSession = getStmt.get(result.lastInsertRowid);
+
+    res.status(201).json(timerSession);
   } catch (error) {
     console.error('Error starting timer:', error);
     res.status(500).json({ error: 'Failed to start timer' });
@@ -73,17 +69,23 @@ router.post('/pause', async (req, res) => {
     const { timer_id } = req.body;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .update({ paused: true })
-      .eq('id', timer_id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const stmt = db.prepare(`
+      UPDATE timer_sessions 
+      SET paused = TRUE
+      WHERE id = ? AND user_id = ?
+    `);
 
-    if (error) throw error;
+    const result = stmt.run(timer_id, userId);
 
-    res.json(data);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Timer session not found' });
+    }
+
+    // Get the updated timer session
+    const getStmt = db.prepare('SELECT * FROM timer_sessions WHERE id = ? AND user_id = ?');
+    const timerSession = getStmt.get(timer_id, userId);
+
+    res.json(timerSession);
   } catch (error) {
     console.error('Error pausing timer:', error);
     res.status(500).json({ error: 'Failed to pause timer' });
@@ -96,17 +98,23 @@ router.post('/resume', async (req, res) => {
     const { timer_id } = req.body;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .update({ paused: false })
-      .eq('id', timer_id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const stmt = db.prepare(`
+      UPDATE timer_sessions 
+      SET paused = FALSE
+      WHERE id = ? AND user_id = ?
+    `);
 
-    if (error) throw error;
+    const result = stmt.run(timer_id, userId);
 
-    res.json(data);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Timer session not found' });
+    }
+
+    // Get the updated timer session
+    const getStmt = db.prepare('SELECT * FROM timer_sessions WHERE id = ? AND user_id = ?');
+    const timerSession = getStmt.get(timer_id, userId);
+
+    res.json(timerSession);
   } catch (error) {
     console.error('Error resuming timer:', error);
     res.status(500).json({ error: 'Failed to resume timer' });
@@ -119,20 +127,23 @@ router.post('/stop', async (req, res) => {
     const { timer_id } = req.body;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .update({
-        completed: true,
-        end_time: new Date().toISOString()
-      })
-      .eq('id', timer_id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const stmt = db.prepare(`
+      UPDATE timer_sessions 
+      SET completed = TRUE, end_time = ?
+      WHERE id = ? AND user_id = ?
+    `);
 
-    if (error) throw error;
+    const result = stmt.run(new Date().toISOString(), timer_id, userId);
 
-    res.json(data);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Timer session not found' });
+    }
+
+    // Get the updated timer session
+    const getStmt = db.prepare('SELECT * FROM timer_sessions WHERE id = ? AND user_id = ?');
+    const timerSession = getStmt.get(timer_id, userId);
+
+    res.json(timerSession);
   } catch (error) {
     console.error('Error stopping timer:', error);
     res.status(500).json({ error: 'Failed to stop timer' });
@@ -145,20 +156,23 @@ router.post('/complete', async (req, res) => {
     const { timer_id } = req.body;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
-      .from('timer_sessions')
-      .update({
-        completed: true,
-        end_time: new Date().toISOString()
-      })
-      .eq('id', timer_id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const stmt = db.prepare(`
+      UPDATE timer_sessions 
+      SET completed = TRUE, end_time = ?
+      WHERE id = ? AND user_id = ?
+    `);
 
-    if (error) throw error;
+    const result = stmt.run(new Date().toISOString(), timer_id, userId);
 
-    res.json(data);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Timer session not found' });
+    }
+
+    // Get the updated timer session
+    const getStmt = db.prepare('SELECT * FROM timer_sessions WHERE id = ? AND user_id = ?');
+    const timerSession = getStmt.get(timer_id, userId);
+
+    res.json(timerSession);
   } catch (error) {
     console.error('Error completing timer session:', error);
     res.status(500).json({ error: 'Failed to complete session' });

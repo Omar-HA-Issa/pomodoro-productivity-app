@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const supabase = require("../database");
+const { supabase } = require("../database"); // Import only supabase for auth
 
 router.post("/signup", async (req, res) => {
   try {
