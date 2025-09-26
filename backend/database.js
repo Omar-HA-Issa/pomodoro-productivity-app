@@ -56,6 +56,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_datetime ON scheduled_sessions(start_datetime);
 `);
 
+
 // Supabase Auth (keep for authentication)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -74,5 +75,5 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 
 module.exports = {
   db,           // SQLite database for app data
-  supabase      // Supabase client for auth only
+  supabase      // Supabase client for auth
 };

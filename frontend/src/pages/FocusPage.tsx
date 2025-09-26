@@ -269,6 +269,24 @@ const FocusPage: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    // Check for preselected template from Schedule page
+    const savedTemplate = localStorage.getItem('selectedTemplate');
+    if (savedTemplate) {
+      try {
+        const template = JSON.parse(savedTemplate);
+        const matchingTemplate = sessionTemplates.find(t => t.id === template.id);
+        if (matchingTemplate) {
+          setSelectedTemplate(matchingTemplate);
+        }
+        localStorage.removeItem('selectedTemplate'); // Clean up
+      } catch (error) {
+        console.error('Error parsing selected template:', error);
+        localStorage.removeItem('selectedTemplate');
+      }
+    }
+  }, [sessionTemplates]);
+
   const getProgressPercentage = (): number => {
     const phaseDuration = timerState.currentPhase === 'FOCUS'
       ? (selectedTemplate?.focus_duration || 25) * 60
@@ -295,7 +313,7 @@ const FocusPage: React.FC = () => {
 
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold mb-2 text-gray-900">Focus Session</h2>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-white-600">
           Dedicated environment for deep work with automatic cycle switching
         </p>
       </div>
