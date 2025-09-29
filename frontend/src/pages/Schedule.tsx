@@ -149,7 +149,7 @@ const Schedule: React.FC = () => {
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to schedule'); }
   }
 
-  async function markDone(id: number) {
+  async function toggleDone(id: number) {
     const s = schedule.find(x => x.id === id); if (!s) return;
     try {
       await api(`/api/schedule/${id}`, {
@@ -159,10 +159,10 @@ const Schedule: React.FC = () => {
           title: s.title,
           start_datetime: s.start_datetime,
           duration_min: s.duration_min,
-          completed: true,
+          completed: !s.completed,
         }),
       });
-      setSchedule(prev => prev.map(x => x.id === id ? { ...x, completed: true } : x));
+      setSchedule(prev => prev.map(x => x.id === id ? { ...x, completed: !s.completed } : x));
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to update'); }
   }
 
@@ -327,7 +327,7 @@ const Schedule: React.FC = () => {
                     {daySessions.length > 0 && (
                       <>
                         {(open ? daySessions : daySessions.slice(0, 1)).map(s => (
-                          <div key={s.id} className="text-xs p-1.5 rounded text-center text-white" style={gradient}>
+                          <div key={s.id} className={`text-xs p-1.5 rounded text-center text-white ${s.completed ? 'line-through opacity-60' : ''}`} style={gradient}>
                             <div className="font-medium truncate">{titleFor(s)}</div>
                             {(open || daySessions.length === 1) && (
                               <div className="opacity-90 mt-0.5">{new Date(s.start_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
@@ -391,12 +391,19 @@ const Schedule: React.FC = () => {
                             Start
                           </button>
                         )}
-                        {!s.completed && (
-                          <button onClick={() => markDone(s.id)} className="px-3 py-1 rounded-lg text-sm font-medium text-green-700 hover:bg-green-50 inline-flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-                            Mark done
-                          </button>
-                        )}
+                        <button onClick={() => toggleDone(s.id)} className={`px-3 py-1 rounded-lg text-sm font-medium inline-flex items-center gap-1 ${s.completed ? 'text-orange-700 hover:bg-orange-50' : 'text-green-700 hover:bg-green-50'}`}>
+                          {s.completed ? (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                              Unmark
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                              Mark done
+                            </>
+                          )}
+                        </button>
                         <button onClick={() => removeItem(s.id)} className="px-3 py-1 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 inline-flex items-center gap-1">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                           Delete
