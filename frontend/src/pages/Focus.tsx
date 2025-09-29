@@ -329,17 +329,25 @@ const Focus: React.FC = () => {
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#204972] to-[#142f4b] overflow-y-auto' : 'max-w-4xl mx-auto'} px-4 sm:px-6 lg:px-8 py-8`}>
       {/* Session Completion Message */}
       {showCompletionMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl shadow-lg z-50 animate-bounce">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p className="font-semibold">Session Complete!</p>
-              <p className="text-sm opacity-90">Great work on completing {timerState.targetCycles} cycles</p>
+          <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+            <div
+                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-8 rounded-2xl shadow-2xl max-w-md mx-4 animate-scaleIn">
+              <div className="text-center">
+                <div className="mb-4">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Session Complete!</h3>
+                <p className="text-lg opacity-90">
+                  Great work
+                  completing {timerState.targetCycles} focus {timerState.targetCycles === 1 ? 'cycle' : 'cycles'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
       )}
 
       <div className={`text-center mb-8 ${isFullscreen ? 'text-white' : ''}`}>
@@ -479,7 +487,7 @@ const Focus: React.FC = () => {
         </div>
 
         <div className={`text-sm mb-4 ${isFullscreen ? 'text-white' : 'text-gray-600'}`}>
-          Cycle {timerState.currentCycle + 1} of {timerState.targetCycles}
+          Cycle {timerState.currentCycle} of {timerState.targetCycles}
         </div>
 
         <div className="max-w-xs mx-auto">
