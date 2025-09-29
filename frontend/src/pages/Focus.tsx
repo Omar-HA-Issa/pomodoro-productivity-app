@@ -35,7 +35,7 @@ const Focus: React.FC = () => {
     isPaused: false,
     currentPhase: 'IDLE',
     currentCycle: 0,
-    targetCycles: 4,
+    targetCycles: 2,
   });
 
   const [sessionTemplates, setSessionTemplates] = useState<SessionTemplate[]>([]);
@@ -113,6 +113,26 @@ const Focus: React.FC = () => {
     }
   };
 
+  const stopTimer = useCallback(async () => {
+    if (!timerState.id) return;
+
+    try {
+      await timerAPI.stop(timerState.id);
+
+      setTimerState((prev) => ({
+        ...prev,
+        id: undefined,
+        time: selectedTemplate?.focus_duration ? selectedTemplate.focus_duration * 60 : 25 * 60,
+        isRunning: false,
+        isPaused: false,
+        currentPhase: 'IDLE',
+        currentCycle: 0,
+      }));
+    } catch (error) {
+      console.error('Error stopping timer:', error);
+    }
+  }, [timerState.id, selectedTemplate?.focus_duration]);
+
   const handlePhaseTransition = useCallback(async () => {
     if (!timerState.id) return;
 
@@ -165,7 +185,7 @@ const Focus: React.FC = () => {
       // Try to surface server message
       console.error('Error transitioning phase:', error);
     }
-  }, [timerState, selectedTemplate]);
+  }, [timerState, selectedTemplate, stopTimer]);
 
   const startTimer = async (phase: 'FOCUS' | 'BREAK') => {
     try {
@@ -224,25 +244,6 @@ const Focus: React.FC = () => {
     }
   };
 
-  const stopTimer = useCallback(async () => {
-    if (!timerState.id) return;
-
-    try {
-      await timerAPI.stop(timerState.id);
-
-      setTimerState((prev) => ({
-        ...prev,
-        id: undefined,
-        time: selectedTemplate?.focus_duration ? selectedTemplate.focus_duration * 60 : 25 * 60,
-        isRunning: false,
-        isPaused: false,
-        currentPhase: 'IDLE',
-        currentCycle: 0,
-      }));
-    } catch (error) {
-      console.error('Error stopping timer:', error);
-    }
-  }, [timerState.id, selectedTemplate?.focus_duration]);
 
   // Timer countdown effect
   useEffect(() => {
@@ -382,7 +383,7 @@ const Focus: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setTimerState((prev) => ({ ...prev, targetCycles: Math.max(1, prev.targetCycles - 1) }))}
-                disabled={timerState.targetCycles <= 1 || timerState.isRunning}
+                disabled={timerState.targetCycles <= 2 || timerState.isRunning}
                 className={`w-8 h-8 rounded-lg border ${isFullscreen ? 'border-white/40 hover:bg-white/10 text-white' : 'border-gray-200 hover:bg-gray-50 text-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm transition-colors`}
               >
                 −
