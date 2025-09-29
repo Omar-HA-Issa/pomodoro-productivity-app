@@ -159,8 +159,10 @@ const Dashboard: React.FC = () => {
   };
 
   const handleTemplateSelect = (templateId: number) => {
-    // Store template ID and navigate to focus session
-    localStorage.setItem('selectedTemplateId', templateId.toString());
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      localStorage.setItem('selectedTemplate', JSON.stringify(template));
+    }
     navigate('/focus-session');
   };
 

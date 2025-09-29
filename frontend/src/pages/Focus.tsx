@@ -1,8 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { sessionsAPI, timerAPI } from '../lib/api';
 
-// Define Session interface directly here to avoid import issues
 interface Session {
   id: string;
   name: string;
@@ -13,7 +12,6 @@ interface Session {
   updated_at: string;
 }
 
-// Local timer state
 interface TimerState {
   id?: string;
   time: number;
@@ -25,10 +23,11 @@ interface TimerState {
   sessionTemplateId?: string;
 }
 
-// SessionTemplate is the same as Session
 type SessionTemplate = Session;
 
 const Focus: React.FC = () => {
+  const hasLoadedTemplates = useRef(false);
+
   const [timerState, setTimerState] = useState<TimerState>({
     time: 25 * 60,
     isRunning: false,
@@ -45,26 +44,46 @@ const Focus: React.FC = () => {
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
 
   useEffect(() => {
-    fetchSessionTemplates();
-  }, []);
-
-  // Update timer display when template changes (only if not running)
-  useEffect(() => {
-    if (selectedTemplate && timerState.currentPhase === 'IDLE' && !timerState.isRunning) {
-      setTimerState((prev) => ({ ...prev, time: selectedTemplate.focus_duration * 60 }));
+    if (!hasLoadedTemplates.current) {
+      hasLoadedTemplates.current = true;
+      fetchSessionTemplates();
     }
-  }, [selectedTemplate, timerState.currentPhase, timerState.isRunning]);
+  }, []);
 
   const fetchSessionTemplates = async () => {
     try {
       const data = await sessionsAPI.getAll();
       const sessions = (data || []) as Session[];
       setSessionTemplates(sessions);
-      if (sessions.length > 0) {
-        setSelectedTemplate(sessions[0]);
+
+      if (sessions.length === 0) {
+        await checkActiveSession();
+        return;
       }
 
-      // After templates loaded, check for active session
+      const savedTemplate = localStorage.getItem('selectedTemplate');
+      let templateToSelect = sessions[0];
+
+      if (savedTemplate) {
+        try {
+          const parsed = JSON.parse(savedTemplate);
+          const found = sessions.find(t => t.id === parsed.id);
+          if (found) {
+            templateToSelect = found;
+          }
+          localStorage.removeItem('selectedTemplate');
+        } catch (e) {
+          console.error('Error parsing selected template:', e);
+          localStorage.removeItem('selectedTemplate');
+        }
+      }
+
+      setSelectedTemplate(templateToSelect);
+      setTimerState((prev) => ({
+        ...prev,
+        time: templateToSelect.focus_duration * 60
+      }));
+
       await checkActiveSession();
     } catch (error) {
       console.error('Error fetching sessions:', error);
@@ -78,17 +97,20 @@ const Focus: React.FC = () => {
       if (data && data.id) {
         console.log('Restoring active session:', data);
 
-        // Calculate elapsed time since session started
         const startTime = new Date(data.start_time).getTime();
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         const totalSeconds = data.duration_minutes * 60;
         const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
 
-        // Map backend phase to frontend phase
-        const frontendPhase = data.phase === 'focus' ? 'FOCUS' : 'BREAK'; // 'short_break' -> BREAK
+        if (remainingSeconds <= 0) {
+          console.log('Active session expired, cleaning up');
+          await timerAPI.stop(data.id);
+          return;
+        }
 
-        // Restore the timer state
+        const frontendPhase = data.phase === 'focus' ? 'FOCUS' : 'BREAK';
+
         setTimerState({
           id: data.id,
           time: remainingSeconds,
@@ -96,14 +118,17 @@ const Focus: React.FC = () => {
           isPaused: data.paused || false,
           currentPhase: frontendPhase,
           currentCycle: data.current_cycle || 0,
-          targetCycles: data.target_cycles || 4,
+          targetCycles: data.target_cycles || 2,
           sessionTemplateId: data.session_template_id?.toString(),
         });
 
-        // If time expired while user was away, handle completion
-        if (remainingSeconds <= 0 && !data.paused) {
-          console.log('Timer expired while away, completing phase');
-          await handlePhaseTransition();
+        if (data.session_template_id && sessionTemplates.length > 0) {
+          const matchingTemplate = sessionTemplates.find(
+              t => t.id === data.session_template_id?.toString()
+          );
+          if (matchingTemplate) {
+            setSelectedTemplate(matchingTemplate);
+          }
         }
 
         return;
@@ -142,12 +167,10 @@ const Focus: React.FC = () => {
       let duration: number;
 
       if (timerState.currentPhase === 'FOCUS') {
-        // finished focus -> go to break
         nextPhase = 'BREAK';
         nextCycle = timerState.currentCycle + 1;
         duration = selectedTemplate?.break_duration || 5;
       } else {
-        // finished break -> either done or go back to focus
         if (nextCycle >= timerState.targetCycles) {
           await stopTimer();
           setShowCompletionMessage(true);
@@ -158,10 +181,8 @@ const Focus: React.FC = () => {
         duration = selectedTemplate?.focus_duration || 25;
       }
 
-      // mark current one complete
       await timerAPI.complete(timerState.id);
 
-      // IMPORTANT: send 'short_break' (NOT 'break') to backend for break phase
       const payload = {
         session_template_id: selectedTemplate?.id,
         duration_minutes: duration,
@@ -181,8 +202,7 @@ const Focus: React.FC = () => {
         isRunning: true,
         isPaused: false,
       }));
-    } catch (error: any) {
-      // Try to surface server message
+    } catch (error) {
       console.error('Error transitioning phase:', error);
     }
   }, [timerState, selectedTemplate, stopTimer]);
@@ -191,20 +211,18 @@ const Focus: React.FC = () => {
     try {
       setLoading(true);
 
-      // If there's an active session, stop it first
       if (timerState.id && timerState.isRunning) {
         await timerAPI.stop(timerState.id);
       }
 
-      const duration =
-        phase === 'FOCUS'
-          ? (selectedTemplate?.focus_duration || 25)
-          : (selectedTemplate?.break_duration || 5);
+      const duration = phase === 'FOCUS'
+        ? (selectedTemplate?.focus_duration || 25)
+        : (selectedTemplate?.break_duration || 5);
 
       const payload = {
         session_template_id: selectedTemplate?.id,
         duration_minutes: duration,
-        phase: phase === 'FOCUS' ? 'focus' : 'short_break', // Database expects 'short_break'
+        phase: phase === 'FOCUS' ? 'focus' : 'short_break',
         current_cycle: 0,
         target_cycles: timerState.targetCycles,
       };
@@ -244,8 +262,6 @@ const Focus: React.FC = () => {
     }
   };
 
-
-  // Timer countdown effect
   useEffect(() => {
     let interval: number | undefined;
 
@@ -254,7 +270,6 @@ const Focus: React.FC = () => {
         setTimerState((prevState) => {
           const newTime = prevState.time - 1;
           if (newTime === 0) {
-            // Timer hit zero - trigger transition
             handlePhaseTransition();
             return { ...prevState, time: 0 };
           }
@@ -300,24 +315,6 @@ const Focus: React.FC = () => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  useEffect(() => {
-    // Check for preselected template from Dashboard/Schedule page
-    const savedTemplate = localStorage.getItem('selectedTemplate');
-    if (savedTemplate) {
-      try {
-        const template = JSON.parse(savedTemplate);
-        const matchingTemplate = sessionTemplates.find(t => t.id === template.id);
-        if (matchingTemplate) {
-          setSelectedTemplate(matchingTemplate);
-        }
-        localStorage.removeItem('selectedTemplate');
-      } catch (error) {
-        console.error('Error parsing selected template:', error);
-        localStorage.removeItem('selectedTemplate');
-      }
-    }
-  }, [sessionTemplates]);
-
   const getProgressPercentage = (): number => {
     const phaseDuration = timerState.currentPhase === 'FOCUS'
       ? (selectedTemplate?.focus_duration || 25) * 60
@@ -327,27 +324,22 @@ const Focus: React.FC = () => {
 
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#204972] to-[#142f4b] overflow-y-auto' : 'max-w-4xl mx-auto'} px-4 sm:px-6 lg:px-8 py-8`}>
-      {/* Session Completion Message */}
       {showCompletionMessage && (
-          <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-            <div
-                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-8 rounded-2xl shadow-2xl max-w-md mx-4 animate-scaleIn">
-              <div className="text-center">
-                <div className="mb-4">
-                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold mb-2">Session Complete!</h3>
-                <p className="text-lg opacity-90">
-                  Great work
-                  completing {timerState.targetCycles} focus {timerState.targetCycles === 1 ? 'cycle' : 'cycles'}
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-8 rounded-2xl shadow-2xl max-w-md mx-4 animate-scaleIn">
+            <div className="text-center">
+              <div className="mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
               </div>
+              <h3 className="text-2xl font-bold mb-2">Session Complete!</h3>
+              <p className="text-lg opacity-90">
+                Great work completing {timerState.targetCycles} focus {timerState.targetCycles === 1 ? 'cycle' : 'cycles'}
+              </p>
             </div>
           </div>
+        </div>
       )}
 
       <div className={`text-center mb-8 ${isFullscreen ? 'text-white' : ''}`}>
@@ -364,7 +356,15 @@ const Focus: React.FC = () => {
             {sessionTemplates.map((template) => (
               <button
                 key={template.id}
-                onClick={() => setSelectedTemplate(template)}
+                onClick={() => {
+                  setSelectedTemplate(template);
+                  if (!timerState.isRunning) {
+                    setTimerState(prev => ({
+                      ...prev,
+                      time: template.focus_duration * 60
+                    }));
+                  }
+                }}
                 disabled={timerState.isRunning}
                 className={`px-4 py-2 rounded-lg border transition-colors ${
                   selectedTemplate?.id === template.id
@@ -461,7 +461,6 @@ const Focus: React.FC = () => {
           )}
         </div>
 
-        {/* Fullscreen Toggle Button */}
         <div className="flex justify-center mb-6">
           <button
             onClick={toggleFullscreen}
@@ -500,7 +499,6 @@ const Focus: React.FC = () => {
         </div>
       </div>
 
-      {/* Focus Tips */}
       {!isFullscreen && (
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Focus Session Tips</h3>

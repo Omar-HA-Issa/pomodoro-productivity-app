@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // =============================== Types ===============================
 interface SessionTemplate {
@@ -29,6 +30,7 @@ const gradient = { background: `linear-gradient(90deg, ${BRAND.primary}, ${BRAND
 
 // ============================ Component =============================
 const Schedule: React.FC = () => {
+  const navigate = useNavigate();
   // Data
   const [templates, setTemplates] = useState<SessionTemplate[]>([]);
   const [schedule, setSchedule] = useState<ScheduledSession[]>([]);
@@ -176,7 +178,7 @@ const Schedule: React.FC = () => {
   function startSession(s: ScheduledSession) {
     const tpl = findTemplate(s.session_id);
     if (tpl) localStorage.setItem('selectedTemplate', JSON.stringify(tpl));
-    window.location.href = '/focus-session';
+    navigate('/focus-session');
   }
 
   // ============================ Calendar =============================
