@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React, { useState, useEffect, useCallback } from 'react';
 import { sessionsAPI, timerAPI } from '../lib/api';
 
@@ -27,7 +28,7 @@ interface TimerState {
 // SessionTemplate is the same as Session
 type SessionTemplate = Session;
 
-const FocusPage: React.FC = () => {
+const Focus: React.FC = () => {
   const [timerState, setTimerState] = useState<TimerState>({
     time: 25 * 60,
     isRunning: false,
@@ -45,7 +46,6 @@ const FocusPage: React.FC = () => {
 
   useEffect(() => {
     fetchSessionTemplates();
-    checkActiveSession();
   }, []);
 
   // Update timer display when template changes (only if not running)
@@ -53,7 +53,7 @@ const FocusPage: React.FC = () => {
     if (selectedTemplate && timerState.currentPhase === 'IDLE' && !timerState.isRunning) {
       setTimerState((prev) => ({ ...prev, time: selectedTemplate.focus_duration * 60 }));
     }
-  }, [selectedTemplate]);
+  }, [selectedTemplate, timerState.currentPhase, timerState.isRunning]);
 
   const fetchSessionTemplates = async () => {
     try {
@@ -63,6 +63,9 @@ const FocusPage: React.FC = () => {
       if (sessions.length > 0) {
         setSelectedTemplate(sessions[0]);
       }
+
+      // After templates loaded, check for active session
+      await checkActiveSession();
     } catch (error) {
       console.error('Error fetching sessions:', error);
     }
@@ -73,27 +76,96 @@ const FocusPage: React.FC = () => {
       const data = await timerAPI.getActive();
 
       if (data && data.id) {
-        // Force stop any active session on page load to prevent stuck timers
-        console.log('Stopping stuck session:', data.id);
-        await timerAPI.stop(data.id);
+        console.log('Restoring active session:', data);
 
-        // Reset timer state to IDLE
-        setTimerState(prev => ({
-          ...prev,
-          id: undefined,
-          time: selectedTemplate?.focus_duration ? selectedTemplate.focus_duration * 60 : 25 * 60,
-          isRunning: false,
-          isPaused: false,
-          currentPhase: 'IDLE',
-          currentCycle: 0,
-        }));
+        // Calculate elapsed time since session started
+        const startTime = new Date(data.start_time).getTime();
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const totalSeconds = data.duration_minutes * 60;
+        const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
 
-        return; // Don't restore the session
+        // Map backend phase to frontend phase
+        const frontendPhase = data.phase === 'focus' ? 'FOCUS' : 'BREAK'; // 'short_break' -> BREAK
+
+        // Restore the timer state
+        setTimerState({
+          id: data.id,
+          time: remainingSeconds,
+          isRunning: !data.paused,
+          isPaused: data.paused || false,
+          currentPhase: frontendPhase,
+          currentCycle: data.current_cycle || 0,
+          targetCycles: data.target_cycles || 4,
+          sessionTemplateId: data.session_template_id?.toString(),
+        });
+
+        // If time expired while user was away, handle completion
+        if (remainingSeconds <= 0 && !data.paused) {
+          console.log('Timer expired while away, completing phase');
+          await handlePhaseTransition();
+        }
+
+        return;
       }
     } catch (error) {
       console.error('Error checking active session:', error);
     }
   };
+
+  const handlePhaseTransition = useCallback(async () => {
+    if (!timerState.id) return;
+
+    try {
+      let nextPhase: 'FOCUS' | 'BREAK';
+      let nextCycle = timerState.currentCycle;
+      let duration: number;
+
+      if (timerState.currentPhase === 'FOCUS') {
+        // finished focus -> go to break
+        nextPhase = 'BREAK';
+        nextCycle = timerState.currentCycle + 1;
+        duration = selectedTemplate?.break_duration || 5;
+      } else {
+        // finished break -> either done or go back to focus
+        if (nextCycle >= timerState.targetCycles) {
+          await stopTimer();
+          setShowCompletionMessage(true);
+          setTimeout(() => setShowCompletionMessage(false), 5000);
+          return;
+        }
+        nextPhase = 'FOCUS';
+        duration = selectedTemplate?.focus_duration || 25;
+      }
+
+      // mark current one complete
+      await timerAPI.complete(timerState.id);
+
+      // IMPORTANT: send 'short_break' (NOT 'break') to backend for break phase
+      const payload = {
+        session_template_id: selectedTemplate?.id,
+        duration_minutes: duration,
+        phase: nextPhase === 'FOCUS' ? 'focus' : 'short_break' as const,
+        current_cycle: nextCycle,
+        target_cycles: timerState.targetCycles,
+      };
+
+      const data = await timerAPI.start(payload);
+
+      setTimerState((prev) => ({
+        ...prev,
+        id: data.id,
+        time: duration * 60,
+        currentPhase: nextPhase,
+        currentCycle: nextCycle,
+        isRunning: true,
+        isPaused: false,
+      }));
+    } catch (error: any) {
+      // Try to surface server message
+      console.error('Error transitioning phase:', error);
+    }
+  }, [timerState, selectedTemplate]);
 
   const startTimer = async (phase: 'FOCUS' | 'BREAK') => {
     try {
@@ -104,15 +176,16 @@ const FocusPage: React.FC = () => {
         await timerAPI.stop(timerState.id);
       }
 
-      const duration = phase === 'FOCUS'
-        ? (selectedTemplate?.focus_duration || 25)
-        : (selectedTemplate?.break_duration || 5);
+      const duration =
+        phase === 'FOCUS'
+          ? (selectedTemplate?.focus_duration || 25)
+          : (selectedTemplate?.break_duration || 5);
 
       const payload = {
         session_template_id: selectedTemplate?.id,
         duration_minutes: duration,
-        phase: (phase.toLowerCase() as 'focus' | 'break'), // API expects lowercase
-        current_cycle: 0, // Reset to 0 for new session
+        phase: phase === 'FOCUS' ? 'focus' : 'short_break', // Database expects 'short_break'
+        current_cycle: 0,
         target_cycles: timerState.targetCycles,
       };
 
@@ -125,7 +198,7 @@ const FocusPage: React.FC = () => {
         isRunning: true,
         isPaused: false,
         currentPhase: phase,
-        currentCycle: 0, // Reset cycle count for new session
+        currentCycle: 0,
         sessionTemplateId: selectedTemplate?.id,
       }));
     } catch (error) {
@@ -159,6 +232,7 @@ const FocusPage: React.FC = () => {
 
       setTimerState((prev) => ({
         ...prev,
+        id: undefined,
         time: selectedTemplate?.focus_duration ? selectedTemplate.focus_duration * 60 : 25 * 60,
         isRunning: false,
         isPaused: false,
@@ -170,51 +244,6 @@ const FocusPage: React.FC = () => {
     }
   }, [timerState.id, selectedTemplate?.focus_duration]);
 
-  const handlePhaseTransition = useCallback(async () => {
-    if (!timerState.id) return;
-
-    try {
-      let nextPhase: 'FOCUS' | 'BREAK';
-      let nextCycle = timerState.currentCycle;
-      let duration: number;
-
-      if (timerState.currentPhase === 'FOCUS') {
-        nextPhase = 'BREAK';
-        nextCycle = timerState.currentCycle + 1;
-        duration = selectedTemplate?.break_duration || 5;
-      } else {
-        if (nextCycle >= timerState.targetCycles) {
-          await stopTimer();
-          setShowCompletionMessage(true);
-          setTimeout(() => setShowCompletionMessage(false), 5000);
-          return;
-        }
-        nextPhase = 'FOCUS';
-        duration = selectedTemplate?.focus_duration || 25;
-      }
-
-      await timerAPI.complete(timerState.id);
-
-      const data = await timerAPI.start({
-        session_template_id: selectedTemplate?.id,
-        duration_minutes: duration,
-        phase: (nextPhase.toLowerCase() as 'focus' | 'break'), // API expects lowercase
-        current_cycle: nextCycle,
-        target_cycles: timerState.targetCycles,
-      });
-
-      setTimerState((prev) => ({
-        ...prev,
-        id: data.id,
-        time: duration * 60,
-        currentPhase: nextPhase,
-        currentCycle: nextCycle,
-      }));
-    } catch (error) {
-      console.error('Error transitioning phase:', error);
-    }
-  }, [timerState, selectedTemplate, stopTimer]);
-
   // Timer countdown effect
   useEffect(() => {
     let interval: number | undefined;
@@ -223,9 +252,10 @@ const FocusPage: React.FC = () => {
       interval = window.setInterval(() => {
         setTimerState((prevState) => {
           const newTime = prevState.time - 1;
-          if (newTime <= 0) {
+          if (newTime === 0) {
+            // Timer hit zero - trigger transition
             handlePhaseTransition();
-            return prevState;
+            return { ...prevState, time: 0 };
           }
           return { ...prevState, time: newTime };
         });
@@ -270,7 +300,7 @@ const FocusPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check for preselected template from Schedule page
+    // Check for preselected template from Dashboard/Schedule page
     const savedTemplate = localStorage.getItem('selectedTemplate');
     if (savedTemplate) {
       try {
@@ -279,7 +309,7 @@ const FocusPage: React.FC = () => {
         if (matchingTemplate) {
           setSelectedTemplate(matchingTemplate);
         }
-        localStorage.removeItem('selectedTemplate'); // Clean up
+        localStorage.removeItem('selectedTemplate');
       } catch (error) {
         console.error('Error parsing selected template:', error);
         localStorage.removeItem('selectedTemplate');
@@ -311,9 +341,9 @@ const FocusPage: React.FC = () => {
         </div>
       )}
 
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold mb-2 text-gray-900">Focus Session</h2>
-        <p className="text-lg text-white-600">
+      <div className={`text-center mb-8 ${isFullscreen ? 'text-white' : ''}`}>
+        <h2 className={`text-3xl font-bold mb-2 ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>Focus Session</h2>
+        <p className={`text-lg ${isFullscreen ? 'text-white/80' : 'text-gray-600'}`}>
           Dedicated environment for deep work with automatic cycle switching
         </p>
       </div>
@@ -345,23 +375,23 @@ const FocusPage: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 mb-8 text-center">
+      <div className={`${isFullscreen ? 'bg-white/10 backdrop-blur-sm border-white/20' : 'bg-white border-gray-200'} border rounded-2xl p-8 mb-8 text-center`}>
         <div className="flex justify-center items-center gap-8 mb-8">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">Target Cycles:</span>
+            <span className={`text-sm font-medium ${isFullscreen ? 'text-white' : 'text-gray-700'}`}>Target Cycles:</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setTimerState((prev) => ({ ...prev, targetCycles: Math.max(1, prev.targetCycles - 1) }))}
                 disabled={timerState.targetCycles <= 1 || timerState.isRunning}
-                className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-gray-600 text-sm transition-colors"
+                className={`w-8 h-8 rounded-lg border ${isFullscreen ? 'border-white/40 hover:bg-white/10 text-white' : 'border-gray-200 hover:bg-gray-50 text-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm transition-colors`}
               >
                 −
               </button>
-              <span className="text-lg font-semibold text-gray-900 w-8 text-center">{timerState.targetCycles}</span>
+              <span className={`text-lg font-semibold w-8 text-center ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>{timerState.targetCycles}</span>
               <button
                 onClick={() => setTimerState((prev) => ({ ...prev, targetCycles: Math.min(10, prev.targetCycles + 1) }))}
                 disabled={timerState.targetCycles >= 10 || timerState.isRunning}
-                className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-gray-600 text-sm transition-colors"
+                className={`w-8 h-8 rounded-lg border ${isFullscreen ? 'border-white/40 hover:bg-white/10 text-white' : 'border-gray-200 hover:bg-gray-50 text-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm transition-colors`}
               >
                 +
               </button>
@@ -371,12 +401,12 @@ const FocusPage: React.FC = () => {
 
         <div className="relative mx-auto mb-8" style={{ width: '320px', height: '320px' }}>
           <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" stroke="#f3f4f6" strokeWidth="2" fill="transparent" />
+            <circle cx="50" cy="50" r="45" stroke={isFullscreen ? 'rgba(255,255,255,0.2)' : '#f3f4f6'} strokeWidth="2" fill="transparent" />
             <circle
               cx="50"
               cy="50"
               r="45"
-              stroke={getPhaseColor()}
+              stroke={isFullscreen ? '#ffffff' : getPhaseColor()}
               strokeWidth="2"
               fill="transparent"
               strokeDasharray={`${2 * Math.PI * 45}`}
@@ -386,10 +416,10 @@ const FocusPage: React.FC = () => {
           </svg>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-sm font-medium mb-2 text-gray-600">
+            <div className={`text-sm font-medium mb-2 ${isFullscreen ? 'text-white' : 'text-gray-600'}`}>
               {timerState.currentPhase}
             </div>
-            <div className="text-5xl font-bold tracking-tight font-mono text-gray-900">
+            <div className={`text-5xl font-bold tracking-tight font-mono ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>
               {formatTime(timerState.time)}
             </div>
           </div>
@@ -397,27 +427,18 @@ const FocusPage: React.FC = () => {
 
         <div className="flex justify-center gap-4 mb-6">
           {!timerState.isRunning ? (
-            <>
-              <button
-                onClick={() => startTimer('FOCUS')}
-                disabled={loading}
-                className="bg-gradient-to-r from-[#204972] to-[#142f4b] text-white px-8 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-50"
-              >
-                Start Focus
-              </button>
-              <button
-                onClick={() => startTimer('BREAK')}
-                disabled={loading}
-                className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-50"
-              >
-                Start Break
-              </button>
-            </>
+            <button
+              onClick={() => startTimer('FOCUS')}
+              disabled={loading}
+              className="bg-gradient-to-r from-[#204972] to-[#142f4b] hover:from-[#142f4b] hover:to-[#0d1f2d] text-white px-8 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+            >
+              Start Focus Session
+            </button>
           ) : (
             <>
               <button
                 onClick={pauseTimer}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
+                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white px-8 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
               >
                 {timerState.isPaused ? 'Resume' : 'Pause'}
               </button>
@@ -435,7 +456,7 @@ const FocusPage: React.FC = () => {
         <div className="flex justify-center mb-6">
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className={`flex items-center gap-2 ${isFullscreen ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} px-6 py-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500`}
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? (
@@ -456,14 +477,14 @@ const FocusPage: React.FC = () => {
           </button>
         </div>
 
-        <div className="text-sm mb-4 text-gray-600">
-          Cycle {timerState.currentCycle} of {timerState.targetCycles}
+        <div className={`text-sm mb-4 ${isFullscreen ? 'text-white' : 'text-gray-600'}`}>
+          Cycle {timerState.currentCycle + 1} of {timerState.targetCycles}
         </div>
 
         <div className="max-w-xs mx-auto">
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className={`w-full rounded-full h-2 ${isFullscreen ? 'bg-white/20' : 'bg-gray-200'}`}>
             <div
-              className="bg-gradient-to-r from-[#204972] to-[#142f4b] h-2 rounded-full transition-all duration-300"
+              className={`${isFullscreen ? 'bg-white' : 'bg-gradient-to-r from-[#204972] to-[#142f4b]'} h-2 rounded-full transition-all duration-300`}
               style={{ width: `${(timerState.currentCycle / timerState.targetCycles) * 100}%` }}
             />
           </div>
@@ -486,4 +507,4 @@ const FocusPage: React.FC = () => {
   );
 };
 
-export default FocusPage;
+export default Focus;

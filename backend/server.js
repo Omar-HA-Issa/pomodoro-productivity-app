@@ -6,6 +6,7 @@ const authRouter = require("./routes/auth");
 const timerRouter = require("./routes/timer");
 const sessionsRouter = require("./routes/sessions");
 const scheduleRouter = require("./routes/schedule");
+const dashboardRoutes = require('./routes/dashboard');
 const { requireAuth } = require("./middleware/authMiddleware");
 
 const app = express();
@@ -22,6 +23,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/timer", requireAuth, timerRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
 app.use("/api/schedule", requireAuth, scheduleRouter);
+app.use('/api/dashboard', dashboardRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

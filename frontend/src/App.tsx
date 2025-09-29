@@ -4,7 +4,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
 import Templates from './pages/Templates';
 import Schedule from './pages/Schedule';
-import FocusPage from './pages/FocusPage';
+import Focus from './pages/Focus';
 import Login from './pages/auth_pages/Login';
 import SignUp from './pages/auth_pages/SignUp';
 import ForgotPassword from './pages/auth_pages/ForgotPassword';
@@ -45,7 +45,7 @@ const App: React.FC = () => {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/sessions" element={<Templates />} />
                   <Route path="/calendar" element={<Schedule />} />
-                  <Route path="/focus-session" element={<FocusPage />} />
+                  <Route path="/focus-session" element={<Focus />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

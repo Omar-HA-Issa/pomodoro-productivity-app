@@ -111,4 +111,33 @@ router.post("/update-password", async (req, res) => {
   }
 });
 
+router.get("/profile", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "No authorization header" });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      first_name: user.user_metadata?.first_name || '',
+      last_name: user.user_metadata?.last_name || '',
+      full_name: user.user_metadata?.full_name || ''
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
+
+
 module.exports = router;
