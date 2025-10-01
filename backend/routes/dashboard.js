@@ -104,7 +104,7 @@ router.get('/streak', requireAuth, (req, res) => {
     const lastSession = db.prepare(`
       SELECT DATE(created_at) as last_date
       FROM timer_sessions 
-      WHERE user_id = ? AND status = 'completed'
+      WHERE user_id = ? AND completed = 1
       ORDER BY created_at DESC
       LIMIT 1
     `).get(userId);

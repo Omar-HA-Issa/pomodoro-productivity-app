@@ -18,14 +18,19 @@ app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
-
 app.use("/api/auth", authRouter);
 app.use("/api/timer", requireAuth, timerRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
 app.use("/api/schedule", requireAuth, scheduleRouter);
 app.use('/api/dashboard', dashboardRoutes);
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-  console.log(`API on http://localhost:${PORT}`);
-});
+// Export app for testing
+module.exports = app;
+
+// Only start server if this file is run directly (not imported by tests)
+if (require.main === module) {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`API on http://localhost:${PORT}`);
+  });
+}
