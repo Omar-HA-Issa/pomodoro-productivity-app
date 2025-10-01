@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
         {/* Header Section */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome back{userName ? `, ${userName}` : ''}!
+            Welcome{userName ? `, ${userName}` : ''}!
           </h1>
           <p className="text-lg text-gray-600">
             {currentDate.toLocaleDateString('en-US', {
@@ -270,7 +270,7 @@ const Dashboard: React.FC = () => {
                 <Clock className="w-8 h-8" />
               </div>
               <h4 className="font-semibold text-lg mb-1">Start Focus Session</h4>
-              <p className="text-blue-200 text-sm">Begin a 25-minute focus block</p>
+              <p className="text-blue-200 text-sm">Stay on task, distraction free</p>
             </button>
 
             <button

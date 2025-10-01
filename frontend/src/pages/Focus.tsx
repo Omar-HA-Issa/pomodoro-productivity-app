@@ -167,18 +167,25 @@ const Focus: React.FC = () => {
       let duration: number;
 
       if (timerState.currentPhase === 'FOCUS') {
-        nextPhase = 'BREAK';
+        // finishing a focus → increment cycle first
         nextCycle = timerState.currentCycle + 1;
-        duration = selectedTemplate?.break_duration || 5;
-      } else {
+
+        // if we reached the goal, end here (no break)
         if (nextCycle >= timerState.targetCycles) {
+          await timerAPI.complete(timerState.id);
           await stopTimer();
           setShowCompletionMessage(true);
           setTimeout(() => setShowCompletionMessage(false), 5000);
           return;
         }
+
+        // otherwise go to a break
+        nextPhase = 'BREAK';
+        duration = selectedTemplate?.break_duration ?? 5;
+      } else {
+        // coming from a break → start next focus (do NOT increment here)
         nextPhase = 'FOCUS';
-        duration = selectedTemplate?.focus_duration || 25;
+        duration = selectedTemplate?.focus_duration ?? 25;
       }
 
       await timerAPI.complete(timerState.id);
@@ -187,7 +194,7 @@ const Focus: React.FC = () => {
         session_template_id: selectedTemplate?.id,
         duration_minutes: duration,
         phase: nextPhase === 'FOCUS' ? 'focus' : 'short_break' as const,
-        current_cycle: nextCycle,
+        current_cycle: nextCycle,           // note: cycles count finished focuses
         target_cycles: timerState.targetCycles,
       };
 
@@ -206,6 +213,7 @@ const Focus: React.FC = () => {
       console.error('Error transitioning phase:', error);
     }
   }, [timerState, selectedTemplate, stopTimer]);
+
 
   const startTimer = async (phase: 'FOCUS' | 'BREAK') => {
     try {
@@ -325,7 +333,7 @@ const Focus: React.FC = () => {
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#204972] to-[#142f4b] overflow-y-auto' : 'max-w-4xl mx-auto'} px-4 sm:px-6 lg:px-8 py-8`}>
       {showCompletionMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fadeIn">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-12 py-8 rounded-2xl shadow-2xl max-w-md mx-4 animate-scaleIn">
             <div className="text-center">
               <div className="mb-4">

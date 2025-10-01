@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from "../../contexts/AuthContext";
+
 const requirements = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
   { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
@@ -37,21 +38,21 @@ const SignUp: React.FC = () => {
       setErr('Please enter your first name and meet all password requirements.');
       return;
     }
+
     setLoading(true);
     setErr('');
 
-    // IMPORTANT: your AuthContext.signUp should forward this 3rd argument
-    // into Supabase signUp options.data
-    const {error} = await signUp(email, pw, {
+    const { error } = await signUp(email, pw, {
       first_name: firstName.trim(),
       last_name: lastName.trim() === '' ? undefined : lastName.trim(),
     });
 
     setLoading(false);
     if (error) setErr(error);
-    else setOk(true);
+    else setOk(true); // show success screen (no email confirmation)
   };
 
+  // Success screen: "Thanks for Signing Up" → button routes to Login
   if (ok) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
@@ -60,9 +61,9 @@ const SignUp: React.FC = () => {
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-emerald-600 text-3xl">✓</span>
             </div>
-            <h1 className="text-2xl font-bold mb-2">Check Your Email</h1>
+            <h1 className="text-2xl font-bold mb-2">Thanks for Signing Up!</h1>
             <p className="text-gray-600 mb-6">
-              We&apos;ve sent you a confirmation email. Please click the link to verify your account.
+              Your account has been created successfully. You can now log in and start using Pomodoro.
             </p>
             <button
               onClick={() => navigate('/login')}

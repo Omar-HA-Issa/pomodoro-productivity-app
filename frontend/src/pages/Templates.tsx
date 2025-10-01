@@ -128,7 +128,7 @@ const Templates: React.FC = () => {
   const tweak = (
     field: "focus_duration" | "break_duration",
     up: boolean
-  ) => setField(field, Math.max(5, (formData[field] ?? 0) + (up ? 5 : -5)));
+  ) => setField(field, Math.max(1, (formData[field] ?? 0) + (up ? 5 : -5)));
 
   const resetForm = () => {
     setEditing(null);
