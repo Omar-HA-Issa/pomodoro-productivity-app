@@ -9,7 +9,7 @@ const db = new Database(dbPath);
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
-// Create tables (base schemas only; migrations add newer columns)
+// Base schema (tables + base indexes)
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,25 +56,29 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_datetime ON scheduled_sessions(start_datetime);
 `);
 
-// --- Migrations (idempotent) ---
-// Add scheduled_sessions.completed
+// Migrations
+
+// scheduled_sessions.completed
 try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN completed BOOLEAN DEFAULT FALSE;`); } catch (_) {}
 
-// Add sentiment analysis columns to timer_sessions
+// timer_sessions sentiment fields
 try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN notes TEXT;`); } catch (_) {}
 try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_label TEXT;`); } catch (_) {}
 try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_score REAL;`); } catch (_) {}
 try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN analyzed_at DATETIME;`); } catch (_) {}
 
-// Add sentiment analysis columns to scheduled_sessions
+// scheduled_sessions sentiment fields
 try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN notes TEXT;`); } catch (_) {}
 try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_label TEXT;`); } catch (_) {}
 try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_score REAL;`); } catch (_) {}
 try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN analyzed_at DATETIME;`); } catch (_) {}
 
-// Add session_group_id to timer_sessions and index it (AFTER table exists, BEFORE creating index)
+// session_group_id (for grouping all cycles within a single run)
 try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN session_group_id TEXT;`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_timer_sessions_group ON timer_sessions(session_group_id);`); } catch (_) {}
+
+// Helps ORDER BY date scans from the view
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_timer_sessions_endtime ON timer_sessions(end_time);`); } catch (_) {}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -87,11 +91,65 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
-  }
+    persistSession: false,
+  },
 });
 
+// Insights read model (SQL VIEW)
+try {
+  db.exec(`
+    DROP VIEW IF EXISTS insights_session_runs;
+    CREATE VIEW insights_session_runs AS
+    WITH grouped AS (
+      SELECT
+        ts.user_id,
+        ts.session_group_id,
+        MIN(ts.id) AS rep_id,
+        MAX(COALESCE(ts.end_time, ts.start_time, ts.created_at)) AS rep_date,
+        SUM(CASE WHEN ts.phase = 'focus' THEN ts.duration_minutes ELSE 0 END) AS total_focus_min,
+        SUM(CASE WHEN ts.phase = 'focus' THEN 1 ELSE 0 END) AS focus_blocks,
+        MAX(ts.target_cycles) AS target_cycles,
+        MAX(ts.analyzed_at) AS analyzed_at,
+        (SELECT t2.sentiment_label
+           FROM timer_sessions t2
+          WHERE t2.user_id = ts.user_id
+            AND t2.session_group_id = ts.session_group_id
+            AND t2.sentiment_label IS NOT NULL
+          ORDER BY t2.analyzed_at DESC
+          LIMIT 1) AS sentiment_label,
+        (SELECT t2.sentiment_score
+           FROM timer_sessions t2
+          WHERE t2.user_id = ts.user_id
+            AND t2.session_group_id = ts.session_group_id
+            AND t2.sentiment_label IS NOT NULL
+          ORDER BY t2.analyzed_at DESC
+          LIMIT 1) AS sentiment_score,
+        MAX(ts.session_template_id) AS session_template_id
+      FROM timer_sessions ts
+      WHERE ts.completed = 1
+        AND ts.session_group_id IS NOT NULL
+      GROUP BY ts.user_id, ts.session_group_id
+      HAVING focus_blocks >= target_cycles
+    )
+    SELECT
+      g.user_id,
+      'timer_' || g.rep_id AS id,
+      COALESCE(s.name, 'Focus Session') AS title,
+      g.rep_date AS date,
+      g.total_focus_min AS duration,
+      g.sentiment_label,
+      g.sentiment_score,
+      g.analyzed_at
+    FROM grouped g
+    LEFT JOIN sessions s ON s.id = g.session_template_id;
+  `);
+} catch (_) {
+  // ignore view recreation errors
+}
+
+try { db.exec(`DELETE FROM timer_sessions WHERE session_group_id IS NULL;`); } catch (_) {}
+
 module.exports = {
-  db,           // SQLite database for app data
-  supabase      // Supabase client for auth
+  db,       // SQLite database for app data
+  supabase, // Supabase client for auth
 };
