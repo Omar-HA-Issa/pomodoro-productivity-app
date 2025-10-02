@@ -1,6 +1,8 @@
 const express = require('express');
-const { db } = require('../database'); // Import SQLite db
+const { db } = require('../database');
 const router = express.Router();
+const { requireAuth } = require('../middleware/authMiddleware');
+router.use(requireAuth);
 
 // GET /api/timer/active - Check for active timer session
 router.get('/active', async (req, res) => {
@@ -9,7 +11,7 @@ router.get('/active', async (req, res) => {
 
     const stmt = db.prepare(`
       SELECT * FROM timer_sessions 
-      WHERE user_id = ? AND completed = FALSE
+      WHERE user_id = ? AND completed = 0
       ORDER BY created_at DESC
       LIMIT 1
     `);
@@ -29,17 +31,19 @@ router.post('/start', async (req, res) => {
     const {
       session_template_id,
       duration_minutes,
-      phase,
+      phase = 'focus',
       current_cycle = 0,
       target_cycles = 4
     } = req.body;
 
+    const now = new Date().toISOString();
+
     const stmt = db.prepare(`
       INSERT INTO timer_sessions (
         user_id, session_template_id, duration_minutes, phase, 
-        current_cycle, target_cycles, completed, paused, start_time
+        current_cycle, target_cycles, completed, paused, start_time, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, FALSE, FALSE, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
     `);
 
     const result = stmt.run(
@@ -49,7 +53,8 @@ router.post('/start', async (req, res) => {
       phase,
       current_cycle,
       target_cycles,
-      new Date().toISOString()
+      now,
+      now
     );
 
     // Get the created timer session
@@ -71,7 +76,7 @@ router.post('/pause', async (req, res) => {
 
     const stmt = db.prepare(`
       UPDATE timer_sessions 
-      SET paused = TRUE
+      SET paused = 1
       WHERE id = ? AND user_id = ?
     `);
 
@@ -100,7 +105,7 @@ router.post('/resume', async (req, res) => {
 
     const stmt = db.prepare(`
       UPDATE timer_sessions 
-      SET paused = FALSE
+      SET paused = 0
       WHERE id = ? AND user_id = ?
     `);
 
@@ -129,7 +134,7 @@ router.post('/stop', async (req, res) => {
 
     const stmt = db.prepare(`
       UPDATE timer_sessions 
-      SET completed = TRUE, end_time = ?
+      SET completed = 1, end_time = ?
       WHERE id = ? AND user_id = ?
     `);
 
@@ -158,7 +163,7 @@ router.post('/complete', async (req, res) => {
 
     const stmt = db.prepare(`
       UPDATE timer_sessions 
-      SET completed = TRUE, end_time = ?
+      SET completed = 1, end_time = ?
       WHERE id = ? AND user_id = ?
     `);
 

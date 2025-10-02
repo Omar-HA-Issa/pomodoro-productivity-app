@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Templates from './pages/Templates';
 import Schedule from './pages/Schedule';
 import Focus from './pages/Focus';
+import Insights from './pages/Insights';
 import Login from './pages/auth_pages/Login';
 import SignUp from './pages/auth_pages/SignUp';
 import ForgotPassword from './pages/auth_pages/ForgotPassword';
@@ -33,7 +34,6 @@ const App: React.FC = () => {
         <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" replace />} />
         <Route path="/reset-password" element={!user ? <ResetPassword /> : <Navigate to="/" replace />} />
 
-
         {/* Protected routes */}
         <Route
           path="/*"
@@ -46,6 +46,7 @@ const App: React.FC = () => {
                   <Route path="/sessions" element={<Templates />} />
                   <Route path="/calendar" element={<Schedule />} />
                   <Route path="/focus-session" element={<Focus />} />
+                  <Route path="/insights" element={<Insights />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

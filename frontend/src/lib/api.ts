@@ -30,9 +30,23 @@ interface ScheduledSession {
   start_datetime: string;
   duration_min: number;
   created_at: string;
+  completed?: boolean;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+interface CompletedSession {
+  id: string;
+  date: string;
+  title: string;
+  duration: number;
+  notes?: string;
+  sentiment?: {
+    label: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    score: number;
+  };
+  analyzedAt?: string;
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem('auth_token');
@@ -142,6 +156,7 @@ export const scheduleAPI = {
     title?: string;
     start_datetime: string;
     duration_min?: number;
+    completed?: boolean;
   }) => api<ScheduledSession>(`/schedule/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -150,4 +165,16 @@ export const scheduleAPI = {
   delete: (id: string) => api<null>(`/schedule/${id}`, {
     method: 'DELETE',
   }),
+};
+
+// Insights API helpers
+export const insightsAPI = {
+  getCompletedSessions: () =>
+    api<{ sessions: CompletedSession[] }>('/insights/completed-sessions'),
+
+  analyze: (sessionId: string, notes: string) =>
+    api<{ success: boolean; sentiment: { label: string; score: number } }>('/insights/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, notes }),
+    }),
 };

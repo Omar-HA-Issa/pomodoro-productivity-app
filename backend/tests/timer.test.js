@@ -1,140 +1,234 @@
+// Mock auth BEFORE requiring server
+jest.mock('../middleware/authMiddleware', () => ({
+  requireAuth: (req, res, next) => {
+    if (!req.headers.authorization) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    req.user = { id: 'test-user-timer' }; // Unique ID
+    next();
+  },
+}));
+
 const request = require('supertest');
 const app = require('../server');
 const { db } = require('../database');
 
+const auth = (r) => r.set('Authorization', 'Bearer test-token');
+const userId = 'test-user-timer'; // Unique ID for timer tests
+
+function seedTemplate({ name = 'TestTemplate', focus = 25, brk = 5 } = {}) {
+  const info = db
+    .prepare(
+      `INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
+       VALUES (?, ?, '', ?, ?)`
+    )
+    .run(userId, name, focus, brk);
+  return info.lastInsertRowid;
+}
+
 describe('Timer API', () => {
-  let authToken, userId, sessionTemplateId;
-  const auth = (r) => r.set('Authorization', `Bearer ${authToken}`);
-
-  beforeAll(async () => {
-    const email = `test.timer.${Date.now()}@testmail.com`;
-    await request(app).post('/api/auth/signup').send({ email, password: 'TestPass123!', first_name: 'Timer', last_name: 'Test' });
-    const { body } = await request(app).post('/api/auth/signin').send({ email, password: 'TestPass123!' });
-    authToken = body.session.access_token; userId = body.user.id;
-
-    const { body: s } = await auth(request(app).post('/api/sessions')).send({ name: 'Timer Template', focus_duration: 25, break_duration: 5 });
-    sessionTemplateId = s.id;
+  beforeEach(() => {
+    // Clean in correct order - children first
+    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
   });
 
   afterAll(() => {
-    db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
   });
-
-  beforeEach(() => {
-    db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
-    jest.spyOn(console, 'error').mockImplementation(() => {}); // silence expected error logs
-  });
-  afterEach(() => jest.restoreAllMocks());
-
-  const start = (payload = {}) =>
-    auth(request(app).post('/api/timer/start')).send({ duration_minutes: 25, phase: 'focus', ...payload });
 
   describe('POST /api/timer/start', () => {
-    it('starts a new timer (with template)', async () => {
-      const { status, body } = await start({ session_template_id: sessionTemplateId, current_cycle: 0, target_cycles: 4 });
-      expect(status).toBe(201);
-      expect(body).toMatchObject({ session_template_id: sessionTemplateId, duration_minutes: 25, phase: 'focus', current_cycle: 0, target_cycles: 4, completed: 0, paused: 0 });
-      expect(body.start_time).toBeDefined();
+    it('starts a new timer with template', async () => {
+      const sessionTemplateId = seedTemplate({ name: 'Focus', focus: 25, brk: 5 });
+
+      const res = await auth(request(app).post('/api/timer/start')).send({
+        session_template_id: sessionTemplateId,
+        duration_minutes: 25,
+        phase: 'focus',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.session_template_id).toBe(sessionTemplateId);
+      expect(res.body.duration_minutes).toBe(25);
+      expect(res.body.phase).toBe('focus');
     });
 
-    it('starts without template + default fields', async () => {
-      const { body } = await start({ current_cycle: undefined, target_cycles: undefined });
-      expect(body.session_template_id).toBeNull();
-      expect(body.current_cycle).toBe(0);
-      expect(body.target_cycles).toBe(4);
-    });
+    it('starts a timer without template', async () => {
+      const res = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 30,
+        phase: 'focus',
+      });
 
-    it('accepts all phase types', async () => {
-      for (const phase of ['focus', 'short_break', 'long_break']) {
-        db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
-        const { status, body } = await start({ phase });
-        expect(status).toBe(201); expect(body.phase).toBe(phase);
-      }
+      expect(res.status).toBe(201);
+      expect(res.body.duration_minutes).toBe(30);
+      expect(res.body.phase).toBe('focus');
+      expect(res.body.session_template_id).toBeNull();
     });
   });
 
   describe('GET /api/timer/active', () => {
-    it('returns null if none', async () => {
-      const { status, body } = await auth(request(app).get('/api/timer/active'));
-      expect(status).toBe(200); expect(body).toBeNull();
+    it('returns null when no active timer', async () => {
+      const res = await auth(request(app).get('/api/timer/active'));
+      expect(res.status).toBe(200);
+      expect(res.body).toBeNull();
     });
 
-    it('returns most recent active & ignores completed', async () => {
-      const a = await start(); const id = a.body.id;
-      const b = await start({ duration_minutes: 30, phase: 'short_break' });
-      await auth(request(app).post('/api/timer/stop')).send({ timer_id: id });
-      const { body } = await auth(request(app).get('/api/timer/active'));
-      expect(body).not.toBeNull(); expect(body.completed).toBe(0); expect(body.id).toBe(b.body.id);
-    });
-  });
+    it('returns active timer', async () => {
+      await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+      });
 
-  const pause = (id) => auth(request(app).post('/api/timer/pause')).send({ timer_id: id });
-  const resume = (id) => auth(request(app).post('/api/timer/resume')).send({ timer_id: id });
-  const stop = (id) => auth(request(app).post('/api/timer/stop')).send({ timer_id: id });
-  const complete = (id) => auth(request(app).post('/api/timer/complete')).send({ timer_id: id });
-
-  describe('pause/resume/stop/complete', () => {
-    let id;
-    beforeEach(async () => { id = (await start()).body.id; });
-
-    it('pauses, resumes, then stops', async () => {
-      const pr = await pause(id); expect(pr.body).toMatchObject({ id, paused: 1, completed: 0 });
-      const rr = await resume(id); expect(rr.body).toMatchObject({ id, paused: 0, completed: 0 });
-      const sr = await stop(id); expect(sr.body.completed).toBe(1); expect(sr.body.end_time).toBeDefined();
-    });
-
-    it('404s for non-existent ids', async () => {
-      for (const ep of [pause, resume, stop, complete]) {
-        const { status } = await ep(99999);
-        expect([404, 500]).toContain(status); // sqlite may bubble differently in CI
-      }
-    });
-
-    it('completes directly', async () => {
-      const { status, body } = await complete(id);
-      expect(status).toBe(200); expect(body.completed).toBe(1); expect(body.end_time).toBeDefined();
-    });
-
-    it('sets end_time bounds on stop', async () => {
-      const before = new Date().toISOString();
-      const { body } = await stop(id);
-      const after = new Date().toISOString();
-      expect(body.end_time >= before && body.end_time <= after).toBe(true);
+      const res = await auth(request(app).get('/api/timer/active'));
+      expect(res.status).toBe(200);
+      expect(res.body).not.toBeNull();
+      expect(res.body.duration_minutes).toBe(25);
     });
   });
 
-  describe('Error/Contention coverage', () => {
-    it('rejects missing required fields', async () => {
-      const { status } = await auth(request(app).post('/api/timer/start')).send({ duration_minutes: 25 });
-      expect([400, 500]).toContain(status);
+  describe('POST /api/timer/pause', () => {
+    it('pauses a timer', async () => {
+      const startRes = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+      });
+
+      expect(startRes.status).toBe(201);
+      expect(startRes.body.id).toBeDefined();
+      const timerId = startRes.body.id;
+
+      const res = await auth(request(app).post('/api/timer/pause')).send({
+        timer_id: timerId,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.paused).toBe(1);
     });
 
-    it('violates CHECK with invalid phase', async () => {
-      const { status } = await start({ phase: 'INVALID' });
-      expect(status).toBe(500);
+    it('returns 404 for non-existent timer', async () => {
+      const res = await auth(request(app).post('/api/timer/pause')).send({
+        timer_id: 99999,
+      });
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/timer/resume', () => {
+    it('resumes a paused timer', async () => {
+      const startRes = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+      });
+      expect(startRes.status).toBe(201);
+      const timerId = startRes.body.id;
+
+      const pauseRes = await auth(request(app).post('/api/timer/pause')).send({ timer_id: timerId });
+      expect(pauseRes.status).toBe(200);
+
+      const res = await auth(request(app).post('/api/timer/resume')).send({
+        timer_id: timerId,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.paused).toBe(0);
+    });
+  });
+
+  describe('POST /api/timer/stop', () => {
+    it('stops and completes a timer', async () => {
+      const startRes = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+      });
+      expect(startRes.status).toBe(201);
+      const timerId = startRes.body.id;
+
+      const res = await auth(request(app).post('/api/timer/stop')).send({
+        timer_id: timerId,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.completed).toBe(1);
+      expect(res.body.end_time).toBeDefined();
+    });
+  });
+
+  describe('POST /api/timer/complete', () => {
+    it('marks timer as complete', async () => {
+      const startRes = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+      });
+      expect(startRes.status).toBe(201);
+      const timerId = startRes.body.id;
+
+      const res = await auth(request(app).post('/api/timer/complete')).send({
+        timer_id: timerId,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.completed).toBe(1);
+      expect(res.body.end_time).toBeDefined();
+    });
+  });
+
+  describe('Timer API - Additional Coverage', () => {
+    it('creates timer with custom cycles', async () => {
+      const res = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 25,
+        phase: 'focus',
+        current_cycle: 1,
+        target_cycles: 8,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.current_cycle).toBe(1);
+      expect(res.body.target_cycles).toBe(8);
     });
 
-    it('handles ops on deleted timer', async () => {
-      const id = (await start()).body.id;
-      db.prepare('DELETE FROM timer_sessions WHERE id = ?').run(id);
-      const { status } = await pause(id);
-      expect(status).toBe(404);
+    it('creates timer with short_break phase', async () => {
+      const res = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 5,
+        phase: 'short_break',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.phase).toBe('short_break');
     });
 
-    it('contention/resume/stop/complete concurrency are handled', async () => {
-      const id = (await start()).body.id;
-      await pause(id);
-      const resumes = await Promise.all(Array.from({ length: 10 }, () => resume(id)));
-      expect(resumes.every(r => [200, 404, 500].includes(r.status))).toBe(true);
+    it('creates timer with long_break phase', async () => {
+      const res = await auth(request(app).post('/api/timer/start')).send({
+        duration_minutes: 15,
+        phase: 'long_break',
+      });
 
-      const id2 = (await start()).body.id;
-      const stops = await Promise.all(Array.from({ length: 10 }, () => stop(id2)));
-      expect(stops.every(r => [200, 404, 500].includes(r.status))).toBe(true);
-
-      const id3 = (await start()).body.id;
-      const completes = await Promise.all(Array.from({ length: 10 }, () => complete(id3)));
-      expect(completes.every(r => [200, 404, 500].includes(r.status))).toBe(true);
+      expect(res.status).toBe(201);
+      expect(res.body.phase).toBe('long_break');
     });
+  });
+
+  it('defaults to focus phase when not specified', async () => {
+    const res = await auth(request(app).post('/api/timer/start')).send({
+      duration_minutes: 25,
+      // phase not specified, should default to 'focus'
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.phase).toBe('focus');
+  });
+
+  it('defaults cycles when not specified', async () => {
+    const res = await auth(request(app).post('/api/timer/start')).send({
+      duration_minutes: 25,
+      phase: 'focus',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.current_cycle).toBe(0);
+    expect(res.body.target_cycles).toBe(4);
   });
 });

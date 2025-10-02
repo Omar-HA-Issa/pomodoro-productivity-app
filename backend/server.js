@@ -8,6 +8,7 @@ const sessionsRouter = require("./routes/sessions");
 const scheduleRouter = require("./routes/schedule");
 const dashboardRoutes = require('./routes/dashboard');
 const { requireAuth } = require("./middleware/authMiddleware");
+const insightsRoutes = require('./routes/insights');
 
 const app = express();
 const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:5174")
@@ -23,6 +24,7 @@ app.use("/api/timer", requireAuth, timerRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
 app.use("/api/schedule", requireAuth, scheduleRouter);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/insights', insightsRoutes);
 
 // Export app for testing
 module.exports = app;
