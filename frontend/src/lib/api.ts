@@ -20,6 +20,9 @@ interface TimerSession {
   paused: boolean;
   start_time: string;
   end_time?: string;
+
+  // NEW: backend may return this so the frontend can keep grouping after refresh
+  session_group_id?: string | null;
 }
 
 interface ScheduledSession {
@@ -106,6 +109,8 @@ export const timerAPI = {
     phase: string;
     current_cycle?: number;
     target_cycles?: number;
+    // NEW: pass this so all phases of the same run share one group id
+    session_group_id?: string;
   }) => api<TimerSession>('/timer/start', {
     method: 'POST',
     body: JSON.stringify(data),

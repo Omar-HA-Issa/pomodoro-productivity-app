@@ -9,7 +9,7 @@ const db = new Database(dbPath);
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
-// Create tables
+// Create tables (base schemas only; migrations add newer columns)
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,62 +56,25 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_scheduled_sessions_datetime ON scheduled_sessions(start_datetime);
 `);
 
-// Add scheduled_sessions completed column (if not exists)
-try {
-  db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN completed BOOLEAN DEFAULT FALSE;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
+// --- Migrations (idempotent) ---
+// Add scheduled_sessions.completed
+try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN completed BOOLEAN DEFAULT FALSE;`); } catch (_) {}
 
-// Add sentiment analysis columns to timer_sessions (if not exists)
-try {
-  db.exec(`ALTER TABLE timer_sessions ADD COLUMN notes TEXT;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
+// Add sentiment analysis columns to timer_sessions
+try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN notes TEXT;`); } catch (_) {}
+try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_label TEXT;`); } catch (_) {}
+try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_score REAL;`); } catch (_) {}
+try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN analyzed_at DATETIME;`); } catch (_) {}
 
-try {
-  db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_label TEXT;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
+// Add sentiment analysis columns to scheduled_sessions
+try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN notes TEXT;`); } catch (_) {}
+try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_label TEXT;`); } catch (_) {}
+try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_score REAL;`); } catch (_) {}
+try { db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN analyzed_at DATETIME;`); } catch (_) {}
 
-try {
-  db.exec(`ALTER TABLE timer_sessions ADD COLUMN sentiment_score REAL;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE timer_sessions ADD COLUMN analyzed_at DATETIME;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
-
-// Add sentiment analysis columns to scheduled_sessions (if not exists)
-try {
-  db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN notes TEXT;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_label TEXT;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN sentiment_score REAL;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
-
-try {
-  db.exec(`ALTER TABLE scheduled_sessions ADD COLUMN analyzed_at DATETIME;`);
-} catch (e) {
-  // Column already exists, ignore error
-}
+// Add session_group_id to timer_sessions and index it (AFTER table exists, BEFORE creating index)
+try { db.exec(`ALTER TABLE timer_sessions ADD COLUMN session_group_id TEXT;`); } catch (_) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_timer_sessions_group ON timer_sessions(session_group_id);`); } catch (_) {}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

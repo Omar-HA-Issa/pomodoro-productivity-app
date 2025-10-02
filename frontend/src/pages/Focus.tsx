@@ -43,6 +43,18 @@ const Focus: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
 
+  // NEW: single group id per run
+  const [sessionGroupId, setSessionGroupId] = useState<string | null>(null);
+  const ensureGroupId = () => {
+    if (sessionGroupId) return sessionGroupId;
+    const id =
+      (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+        ? globalThis.crypto.randomUUID()
+        : `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    setSessionGroupId(id);
+    return id;
+  };
+
   useEffect(() => {
     if (!hasLoadedTemplates.current) {
       hasLoadedTemplates.current = true;
@@ -122,6 +134,11 @@ const Focus: React.FC = () => {
           sessionTemplateId: data.session_template_id?.toString(),
         });
 
+        // NEW: restore session_group_id if backend returns it
+        if (data.session_group_id) {
+          setSessionGroupId(data.session_group_id);
+        }
+
         if (data.session_template_id && sessionTemplates.length > 0) {
           const matchingTemplate = sessionTemplates.find(
               t => t.id === data.session_template_id?.toString()
@@ -153,6 +170,9 @@ const Focus: React.FC = () => {
         currentPhase: 'IDLE',
         currentCycle: 0,
       }));
+
+      // NEW: clear group id on manual stop
+      setSessionGroupId(null);
     } catch (error) {
       console.error('Error stopping timer:', error);
     }
@@ -176,6 +196,9 @@ const Focus: React.FC = () => {
           await stopTimer();
           setShowCompletionMessage(true);
           setTimeout(() => setShowCompletionMessage(false), 5000);
+
+          // NEW: clear group id when a run fully completes
+          setSessionGroupId(null);
           return;
         }
 
@@ -196,6 +219,8 @@ const Focus: React.FC = () => {
         phase: nextPhase === 'FOCUS' ? 'focus' : 'short_break' as const,
         current_cycle: nextCycle,           // note: cycles count finished focuses
         target_cycles: timerState.targetCycles,
+        // NEW: keep the same group id across the whole run
+        session_group_id: ensureGroupId(),
       };
 
       const data = await timerAPI.start(payload);
@@ -212,8 +237,7 @@ const Focus: React.FC = () => {
     } catch (error) {
       console.error('Error transitioning phase:', error);
     }
-  }, [timerState, selectedTemplate, stopTimer]);
-
+  }, [timerState, selectedTemplate, stopTimer, sessionGroupId]);
 
   const startTimer = async (phase: 'FOCUS' | 'BREAK') => {
     try {
@@ -233,6 +257,8 @@ const Focus: React.FC = () => {
         phase: phase === 'FOCUS' ? 'focus' : 'short_break',
         current_cycle: 0,
         target_cycles: timerState.targetCycles,
+        // NEW: start of run → set or reuse group id
+        session_group_id: ensureGroupId(),
       };
 
       const data = await timerAPI.start(payload);
