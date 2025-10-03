@@ -1,4 +1,3 @@
-// Mock auth BEFORE requiring server
 jest.mock('../middleware/authMiddleware', () => ({
   requireAuth: (req, res, next) => {
     if (!req.headers.authorization) {
@@ -14,7 +13,7 @@ const app = require('../server');
 const { db } = require('../database');
 
 const auth = (r) => r.set('Authorization', 'Bearer test-token');
-const userId = 'test-user-sessions'; // Unique ID for sessions tests
+const userId = 'test-user-sessions';
 
 function seedSession({
   name = 'Test',

@@ -1,4 +1,3 @@
-// Mock auth BEFORE requiring anything
 jest.mock('../middleware/authMiddleware', () => ({
   requireAuth: (req, res, next) => {
     if (!req.headers.authorization) {
@@ -34,7 +33,7 @@ function seedCompletedGroup({ minutes = 25, notes = null, when = new Date(), cyc
   const iso = new Date(when).toISOString();
   const groupId = `group_${Date.now()}_${Math.random()}`;
 
-  // Create focus blocks to meet target_cycles
+  // Creating focus blocks to meet target_cycles
   for (let i = 0; i < cycles; i++) {
     db.prepare(`
       INSERT INTO timer_sessions (
@@ -46,7 +45,6 @@ function seedCompletedGroup({ minutes = 25, notes = null, when = new Date(), cyc
     `).run(userId, minutes, iso, iso, iso, notes, groupId, i, cycles);
   }
 
-  // Return the first id for reference
   const result = db.prepare(`
     SELECT MIN(id) as id FROM timer_sessions 
     WHERE user_id = ? AND session_group_id = ?
@@ -128,7 +126,6 @@ describe('Insights API', () => {
       const res = await auth(request(app).post('/api/insights/analyze'))
         .send({ id: 'invalid_format', sentiment_label: 'positive' });
 
-      // Should return 404 because it won't find the session
       expect(res.status).toBe(404);
     });
 
@@ -144,8 +141,6 @@ describe('Insights API', () => {
     });
 
     it('handles missing HF API key', async () => {
-      // This test doesn't apply anymore since we're not calling HF API
-      // The endpoint now just stores sentiment data
       const sessionId = seedCompletedGroup({ notes: 'test' });
 
       const res = await auth(request(app).post('/api/insights/analyze'))
@@ -155,7 +150,6 @@ describe('Insights API', () => {
           sentiment_score: 0.5
         });
 
-      // Should succeed because we're not calling external API
       expect(res.status).toBe(200);
     });
   });
@@ -189,7 +183,6 @@ describe('Insights API', () => {
           sentiment_label: 'positive'
         });
 
-      // Should return 404 because session won't be found
       expect(res.status).toBe(404);
     });
 
@@ -205,7 +198,7 @@ describe('Insights API', () => {
 
       expect(res.status).toBe(200);
 
-      // Verify sentiment was updated (notes update is handled separately via PATCH endpoint)
+      // Verify sentiment was updated
       const updated = db.prepare(
         'SELECT sentiment_label, sentiment_score FROM timer_sessions WHERE id = ?'
       ).get(sessionId);
@@ -230,11 +223,7 @@ describe('Insights API', () => {
   });
 
   it('returns stats with all zero values for new user', async () => {
-    // Don't seed any data - but note the endpoint doesn't exist in your code
-    // Skip this test or remove it since /api/insights/stats is not implemented
     const res = await auth(request(app).get('/api/insights/stats'));
-
-    // The endpoint doesn't exist, so it should return 404
     expect(res.status).toBe(404);
   });
 

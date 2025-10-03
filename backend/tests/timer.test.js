@@ -1,4 +1,3 @@
-// Mock auth BEFORE requiring server
 jest.mock('../middleware/authMiddleware', () => ({
   requireAuth: (req, res, next) => {
     if (!req.headers.authorization) {

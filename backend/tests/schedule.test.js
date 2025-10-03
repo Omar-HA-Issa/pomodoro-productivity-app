@@ -1,4 +1,3 @@
-// Mock auth BEFORE requiring server
 jest.mock('../middleware/authMiddleware', () => ({
   requireAuth: (req, res, next) => {
     if (!req.headers.authorization) {
@@ -121,7 +120,7 @@ describe('Schedule API', () => {
       seedSchedule({ title: 'Late', start: '2025-10-30T10:00:00Z' });
 
       const res = await auth(request(app).get('/api/schedule'))
-        .query({ from: '2025-10-10', to: '2025-10-20' }); // API uses 'from/to' not 'start/end'
+        .query({ from: '2025-10-10', to: '2025-10-20' });
 
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
