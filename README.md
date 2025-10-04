@@ -20,16 +20,6 @@ A full-stack productivity application implementing the Pomodoro Technique with f
 - Node.js (v16+)
 - npm
 
-## Branches Overview
-
-This repository contains three main branches used during development:
-
-- **`main`**: The primary production branch containing the final, stable version of the app.  
-- **`backup`**: Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
-- **`clean_up`**: Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
-
-Each branch served a specific purpose during different stages of development, ensuring stability as the application was being developed.
-
 ##  Starting the Application 
 ```bash
 # Backend
@@ -46,6 +36,16 @@ npm start         # Runs on http://localhost:5173
 cd backend
 npm test
 ```
+
+## Branches Overview
+
+This repository contains three main branches used during development:
+
+- **`main`**: The primary production branch containing the final, stable version of the app.  
+- **`backup`**: Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
+- **`clean_up`**: Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
+
+Each branch served a specific purpose during different stages of development, ensuring stability as the application was being developed.
 ## Project Structure
 
 **Backend:**
@@ -77,9 +77,9 @@ All endpoints require authentication via Bearer token.
 ## Database Overview
 
 SQLite database (`pomodoro.db`) is auto-generated on first run with tables:
-- `sessions` - Session templates
-- `timer_sessions` - Timer records with sentiment tracking
-- `scheduled_sessions` - Calendar events
+- `sessions`:  Session templates
+- `timer_sessions`: Timer records with sentiment tracking
+- `scheduled_sessions`: Calendar events
 
 ## Troubleshooting
 
@@ -87,5 +87,4 @@ SQLite database (`pomodoro.db`) is auto-generated on first run with tables:
 
 **Database reset**: `rm backend/pomodoro.db` then restart server
 
-**CORS errors**: Ensure backend is running before starting frontend
 
