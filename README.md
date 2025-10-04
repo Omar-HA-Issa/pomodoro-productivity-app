@@ -20,6 +20,16 @@ A full-stack productivity application implementing the Pomodoro Technique with f
 - Node.js (v16+)
 - npm
 
+## Branches Overview
+
+This repository contains three main branches used during development:
+
+- **`main`** – The primary production branch containing the final, stable version of the app.  
+- **`backup`** – Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
+- **`clean_up`** – Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
+
+Each branch served a specific purpose during different stages of development, ensuring stability as the application was being developed.
+
 ##  Starting the Application 
 ```bash
 # Backend
@@ -79,6 +89,3 @@ SQLite database (`pomodoro.db`) is auto-generated on first run with tables:
 
 **CORS errors**: Ensure backend is running before starting frontend
 
-## License
-
-MIT
