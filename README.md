@@ -24,9 +24,9 @@ A full-stack productivity application implementing the Pomodoro Technique with f
 
 This repository contains three main branches used during development:
 
-- **`main`** – The primary production branch containing the final, stable version of the app.  
-- **`backup`** – Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
-- **`clean_up`** – Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
+- **`main`**: The primary production branch containing the final, stable version of the app.  
+- **`backup`**: Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
+- **`clean_up`**: Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
 
 Each branch served a specific purpose during different stages of development, ensuring stability as the application was being developed.
 
