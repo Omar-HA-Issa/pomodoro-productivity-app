@@ -5,8 +5,11 @@ const { requireAuth } = require('../middleware/authMiddleware');
 
 router.use(requireAuth);
 
+// Grouping key = session_group_id (one multi-phase/multi-cycle run).
 // GET /api/insights/completed-sessions
-// Returns one row per full multi-cycle run (grouped via session_group_id),
+// Returns up to 300 representative items (newest first), one per completed run.
+// A run is considered complete when focus_blocks >= target_cycles.
+
 router.get('/completed-sessions', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -44,7 +47,7 @@ router.get('/completed-sessions', async (req, res) => {
         HAVING focus_blocks >= target_cycles
       ),
       legacy AS (
-        -- Fallback for old data that has no session_group_id: only pick completed focus rows
+        -- No group id? Treat each completed focus row as its own "run".
         SELECT
           NULL AS session_group_id,
           ts.id AS rep_id,
@@ -70,8 +73,6 @@ router.get('/completed-sessions', async (req, res) => {
     `);
 
     const rows = groupedStmt.all(userId, userId);
-
-    // Map to response with template names
     const sessions = rows.map(r => {
       const nameStmt = db.prepare('SELECT name FROM sessions WHERE id = ?');
       const nameRow = r.session_template_id ? nameStmt.get(r.session_template_id) : null;
@@ -96,6 +97,7 @@ router.get('/completed-sessions', async (req, res) => {
 });
 
 // POST /api/insights/analyze
+// Stores sentiment output (label/score) against a single timer_sessions row.
 // Body: { id: 'timer_123' | 123, sentiment_label, sentiment_score }
 router.post('/analyze', async (req, res) => {
   try {
@@ -104,7 +106,6 @@ router.post('/analyze', async (req, res) => {
 
     if (!id) return res.status(400).json({ error: 'id is required' });
 
-    // Support the synthetic timer_ prefix
     if (typeof id === 'string' && id.startsWith('timer_')) {
       id = Number(id.replace('timer_', ''));
     }
@@ -123,8 +124,6 @@ router.post('/analyze', async (req, res) => {
     `);
     upd.run(ts, sentiment_label, sentiment_score, id, userId);
 
-    // Return the aggregated run item again
-    // If this row belongs to a group, respond with the grouped representative.
     let repRow;
     if (row.session_group_id) {
       const repStmt = db.prepare(`
