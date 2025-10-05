@@ -20,22 +20,15 @@ A full-stack productivity application implementing the Pomodoro Technique with f
 - Node.js (v16+)
 - npm
 
-##  Starting the Application 
-```bash
-# Backend
-cd backend
-npm install
-npm start         # Runs on http://localhost:8000
+## Environment & Setup
 
-# Frontend
-cd frontend
-npm install
-npm start         # Runs on http://localhost:5173
+This repo includes `.env.example` templates. Here is how to setup the enviroment:
 
-# Tests
-cd backend
-npm test
-```
+1) Copy the templates:
+- `backend/.env.example` to create `backend/.env`
+- `frontend/.env.example` to create `frontend/.env` 
+
+2) Fill in values from `.env.example` into your new `.env` files.
 
 ## Branches Overview
 
