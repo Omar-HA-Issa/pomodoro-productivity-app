@@ -1,6 +1,8 @@
 const router = require("express").Router();
-const { supabase } = require("../database"); // Import only supabase for auth
+const { supabase } = require("../database"); // Import Supabase client for authentication routes
 
+// POST /api/auth/signup
+// Registers a new user with email and password using Supabase Auth.
 router.post("/signup", async (req, res) => {
   try {
     const { email, password, first_name, last_name } = req.body;
@@ -26,6 +28,8 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+// POST /api/auth/signin
+// Logs in an existing user via email/password and returns a Supabase session.
 router.post("/signin", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -45,12 +49,14 @@ router.post("/signin", async (req, res) => {
   }
 });
 
+// POST /api/auth/signout
+// Logs the user out of Supabase Auth using their token (if provided).
 router.post("/signout", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      await supabase.auth.getUser(token);
+      await supabase.auth.getUser(token); // verify user context (optional)
     }
 
     const { error } = await supabase.auth.signOut();
@@ -62,6 +68,8 @@ router.post("/signout", async (req, res) => {
   }
 });
 
+// POST /api/auth/forgot-password
+// Sends a password reset email with redirect URL to frontend reset page.
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -80,6 +88,8 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
+// POST /api/auth/update-password
+// Updates a user's password after verifying access token (used after reset flow).
 router.post("/update-password", async (req, res) => {
   try {
     const { password, access_token, refresh_token } = req.body;
@@ -97,6 +107,7 @@ router.post("/update-password", async (req, res) => {
       return res.status(401).json({ error: "Invalid or expired tokens" });
     }
 
+    // Update user password
     const { error: updateError } = await supabase.auth.updateUser({
       password: password
     });
@@ -111,6 +122,8 @@ router.post("/update-password", async (req, res) => {
   }
 });
 
+// GET /api/auth/profile
+// Returns user profile data based on Bearer token authentication.
 router.get("/profile", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -138,6 +151,5 @@ router.get("/profile", async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch user profile' });
   }
 });
-
 
 module.exports = router;
