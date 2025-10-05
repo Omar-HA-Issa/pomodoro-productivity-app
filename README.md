@@ -22,51 +22,60 @@ A full-stack productivity application implementing the Pomodoro Technique with f
 
 ## Installation & Run
 
-1. **Clone the repository**
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/Omar-HA-Issa/pomodoro-productivity-app.git
 cd pomodoro-productivity-app
 ```
 
-2. **Environment & Setup**
-This repo includes `.env.example` templates. Here is how to setup the environment:
+---
 
-1) Copy the templates:
-- `backend/.env.example` → create `backend/.env`
-- `frontend/.env.example` → create `frontend/.env`
+### 2. Environment & Setup
+This project includes `.env.example` templates for both the backend and frontend.  
 
-2) Fill in values** from `.env.example` into your new `.env` files.
+Follow these steps to set up your environment variables:
 
-> **Note:** The needed API keys for the backend `.env` file can be found in the Blackboard submission.
+1. **Copy the templates:**
+   - `backend/.env.example` → create `backend/.env`
+   - `frontend/.env.example` → create `frontend/.env`
 
-3. **Install Dependencies & Run**
+2. **Fill in the values** from each `.env.example` into your new `.env` files.
 
-**For the backend:**
+> **Note:** The required API keys for the backend `.env` file are provided in the Blackboard submission.
+
+---
+
+### 3. Install Dependencies & Run
+
+**Backend Setup:**
 ```bash
 cd backend
 npm install
 npm start
 ```
 
-**For the frontend:**
+**Frontend Setup:**
 ```bash
 cd frontend
 npm install
 npm start
 ```
 
-## Access the Application
+Once both servers are running, open your browser and check that:
 
-The app will run at:
-- Frontend → http://localhost:5173  
-- Backend → http://localhost:8000
+- Frontend runs at: http://localhost:5173  
+- Backend runs at: http://localhost:8000  
 
-4. **Run tests**
+---
+
+### 4. Run Tests
 
 ```bash
 cd backend
 npm test
 ```
+This will run Jest with coverage reporting.
+
 
 ## Branches Overview
 
