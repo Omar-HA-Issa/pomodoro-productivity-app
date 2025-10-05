@@ -28,7 +28,7 @@ git clone https://github.com/Omar-HA-Issa/pomodoro-productivity-app.git
 cd pomodoro-productivity-app
 ```
 
-## Environment & Setup
+2. **Environment & Setup**
 This repo includes `.env.example` templates. Here is how to setup the environment:
 
 a) **Copy the templates:**
@@ -39,7 +39,7 @@ b) **Fill in values** from `.env.example` into your new `.env` files.
 
 > **Note:** The needed API keys for the backend `.env` file can be found in the Blackboard submission.
 
-## Install Dependencies & Run
+3. **Install Dependencies & Run**
 
 **For the backend:**
 ```bash
@@ -61,7 +61,7 @@ The app will run at:
 - Frontend → http://localhost:5173  
 - Backend → http://localhost:8000
 
-**Run tests**
+4. **Run tests**
 
 ```bash
 cd backend
