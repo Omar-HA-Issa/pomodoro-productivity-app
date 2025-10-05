@@ -31,11 +31,11 @@ cd pomodoro-productivity-app
 2. **Environment & Setup**
 This repo includes `.env.example` templates. Here is how to setup the environment:
 
-a) **Copy the templates:**
+1) Copy the templates:
 - `backend/.env.example` → create `backend/.env`
 - `frontend/.env.example` → create `frontend/.env`
 
-b) **Fill in values** from `.env.example` into your new `.env` files.
+2) Fill in values** from `.env.example` into your new `.env` files.
 
 > **Note:** The needed API keys for the backend `.env` file can be found in the Blackboard submission.
 
