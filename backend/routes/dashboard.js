@@ -4,12 +4,18 @@ const Database = require('better-sqlite3');
 const db = new Database('./pomodoro.db');
 const { requireAuth } = require('../middleware/authMiddleware');
 
+// This router serves read-only dashboard data derived from two sources:
+// - timer_sessions (historical, completed focus/break rows)
+// - scheduled_sessions (future/plan items)
+// All routes are auth-protected per-user via requireAuth.
+
 /**
- * Helper function to calculate streak from completed timer sessions
- * Uses the timer_sessions table to track activity
+ * Helper: compute the user's *current* daily streak from completed sessions.
+ * A "streak day" is counted if the user had at least one completed session that day.
+ * It iterates backwards from today and stop at the first gap.
  */
 function calculateCurrentStreak(userId) {
-  // Get distinct dates when user completed sessions
+  // Distinct YYYY-MM-DD dates with a completed session for this user (latest first)
   const sessionDates = db.prepare(`
     SELECT DISTINCT DATE(created_at) as session_date
     FROM timer_sessions 
@@ -41,7 +47,8 @@ function calculateCurrentStreak(userId) {
 }
 
 /**
- * Helper function to calculate longest streak ever
+ * Helper: compute the user's *longest ever* daily streak across history.
+ * We look at consecutive-day gaps in DISTINCT completed-session dates.
  */
 function calculateLongestStreak(userId) {
   const sessionDates = db.prepare(`
@@ -67,6 +74,7 @@ function calculateLongestStreak(userId) {
       currentStreak++;
       longestStreak = Math.max(longestStreak, currentStreak);
     } else {
+      // gap found so restart counting
       currentStreak = 1;
     }
   }
@@ -75,7 +83,7 @@ function calculateLongestStreak(userId) {
 }
 
 /**
- * Helper function to get total active days (days with completed sessions)
+ * Helper: total number of *distinct* active days (days with ≥1 completed session).
  */
 function getTotalActiveDays(userId) {
   const result = db.prepare(`
@@ -89,18 +97,17 @@ function getTotalActiveDays(userId) {
 
 /**
  * GET /api/dashboard/streak
- * Returns user's activity streak based on completed timer sessions
+ * Returns streak metrics based strictly on completed timer_sessions rows.
  */
 router.get('/streak', requireAuth, (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Calculate streaks from completed sessions
     const currentStreak = calculateCurrentStreak(userId);
     const longestStreak = calculateLongestStreak(userId);
     const totalDays = getTotalActiveDays(userId);
 
-    // Get the most recent session date
+    // Most recent day with a completed session; if none, fallback to today so UI can show a value.
     const lastSession = db.prepare(`
       SELECT DATE(created_at) as last_date
       FROM timer_sessions 
@@ -127,7 +134,8 @@ router.get('/streak', requireAuth, (req, res) => {
 
 /**
  * GET /api/dashboard/today-schedule
- * Returns scheduled sessions for today
+ * Returns today's scheduled_sessions joined with session templates (if linked).
+ * The response is simplified to the shape the frontend dashboard expects.
  */
 router.get('/today-schedule', requireAuth, (req, res) => {
   try {
@@ -150,7 +158,6 @@ router.get('/today-schedule', requireAuth, (req, res) => {
       ORDER BY s.start_datetime ASC
     `).all(userId, today);
 
-    // Format for frontend
     const formattedSessions = sessions.map(session => {
       const startTime = new Date(session.start_datetime);
       return {
@@ -162,7 +169,7 @@ router.get('/today-schedule', requireAuth, (req, res) => {
         }),
         title: session.title || session.session_name || 'Untitled Session',
         duration: `${session.duration_min || session.focus_duration || 25} min`,
-        type: 'focus', // Could be enhanced to detect break sessions
+        type: 'focus',
         completed: false
       };
     });
@@ -176,7 +183,7 @@ router.get('/today-schedule', requireAuth, (req, res) => {
 
 /**
  * GET /api/dashboard/stats
- * Returns weekly statistics from completed sessions
+ * Returns simple 7-day stats (count, total minutes, average length) from completed rows.
  */
 router.get('/stats', requireAuth, (req, res) => {
   try {
@@ -184,7 +191,6 @@ router.get('/stats', requireAuth, (req, res) => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
 
-    // Get completed sessions from timer_sessions table
     const stats = db.prepare(`
       SELECT 
         COUNT(*) as sessions_completed,
@@ -209,24 +215,22 @@ router.get('/stats', requireAuth, (req, res) => {
 
 /**
  * GET /api/dashboard/overview
- * Returns all dashboard data in one call (more efficient)
- *
- * This endpoint aggregates:
- * - Streak data from completed timer sessions
- * - Today's scheduled sessions
- * - User's session templates
+ * One-shot aggregated endpoint combining:
+ *  - streak metrics,
+ *  - today's schedule,
+ *  - and user's session templates.
  */
 router.get('/overview', requireAuth, (req, res) => {
   try {
     const userId = req.user.id;
     const today = new Date().toISOString().split('T')[0];
 
-    // Get streak data from completed sessions
+    // Streak metrics
     const currentStreak = calculateCurrentStreak(userId);
     const longestStreak = calculateLongestStreak(userId);
     const totalDays = getTotalActiveDays(userId);
 
-    // Get last session date
+    // Last activity day (or today if none)
     const lastSession = db.prepare(`
       SELECT DATE(created_at) as last_date
       FROM timer_sessions 
@@ -239,7 +243,7 @@ router.get('/overview', requireAuth, (req, res) => {
       ? lastSession.last_date
       : today;
 
-    // Get today's schedule
+    // Today's schedule items joined with templates (name/focus)
     const sessions = db.prepare(`
       SELECT 
         s.id,
@@ -271,7 +275,7 @@ router.get('/overview', requireAuth, (req, res) => {
       };
     });
 
-    // Get session templates
+    // User's templates list for quick access in the dashboard UI
     const templates = db.prepare(`
       SELECT id, name, focus_duration, break_duration, description
       FROM sessions

@@ -1,10 +1,13 @@
 const router = require("express").Router();
-const { db } = require("../database"); // Import SQLite db
+const { db } = require("../database");
 const { requireAuth } = require("../middleware/authMiddleware");
 
 router.use(requireAuth);
 
-// GET /api/sessions - Get user's sessions
+// CRUD over "sessions" table = user-defined templates (focus/break durations + name/description).
+
+// GET /api/sessions
+// Returns the user's templates (latest first).
 router.get("/", async (req, res) => {
   try {
     const stmt = db.prepare(`
@@ -21,12 +24,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/sessions - Create new session
+// POST /api/sessions
+// Create a new template. Minimal validation (name and min durations ≥ 1 minute).
 router.post("/", async (req, res) => {
   try {
     const { name, focus_duration, break_duration, description } = req.body;
 
-    // Validation
     if (!name) {
       return res.status(400).json({ error: "Name is required" });
     }
@@ -50,7 +53,6 @@ router.post("/", async (req, res) => {
       description?.trim() || null
     );
 
-    // Get the created session
     const getStmt = db.prepare('SELECT * FROM sessions WHERE id = ?');
     const session = getStmt.get(result.lastInsertRowid);
 
@@ -61,7 +63,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/sessions/:id - Get specific session
+// GET /api/sessions/:id
+// Fetch a single template (scoped to user).
 router.get("/:id", async (req, res) => {
   try {
     const stmt = db.prepare(`
@@ -81,12 +84,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// PUT /api/sessions/:id - Update session
+// PUT /api/sessions/:id
+// Update a template. Same validation rules as create.
 router.put("/:id", async (req, res) => {
   try {
     const { name, focus_duration, break_duration, description } = req.body;
 
-    // Validation
     if (!name) {
       return res.status(400).json({ error: "Name is required" });
     }
@@ -116,7 +119,6 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    // Get the updated session
     const getStmt = db.prepare('SELECT * FROM sessions WHERE id = ? AND user_id = ?');
     const session = getStmt.get(req.params.id, req.user.id);
 
@@ -127,17 +129,17 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/sessions/:id - Delete session
+// DELETE /api/sessions/:id
+// Deletes the template and its dependent rows for this user (timer_sessions, scheduled_sessions).
 router.delete("/:id", async (req, res) => {
   try {
-    // First delete related records
+
     db.prepare('DELETE FROM timer_sessions WHERE session_template_id = ? AND user_id = ?')
       .run(req.params.id, req.user.id);
 
     db.prepare('DELETE FROM scheduled_sessions WHERE session_id = ? AND user_id = ?')
       .run(req.params.id, req.user.id);
 
-    // Then delete the session
     const result = db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?')
       .run(req.params.id, req.user.id);
 

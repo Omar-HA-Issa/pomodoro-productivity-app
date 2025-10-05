@@ -5,10 +5,14 @@ const { requireAuth } = require('../middleware/authMiddleware');
 
 router.use(requireAuth);
 
+// Timer API records *phases* as rows in timer_sessions (focus/short_break/long_break).
+// At any instant, the "active" phase is the latest, uncompleted row for the user.
+
 // Helpers
 const nowIso = () => new Date().toISOString();
 const VALID_PHASES = new Set(['focus', 'short_break', 'long_break']);
 
+// Return the most recent uncompleted row; if none, there's no active timer.
 function getActiveSession(userId) {
   const stmt = db.prepare(`
     SELECT * FROM timer_sessions
@@ -19,7 +23,8 @@ function getActiveSession(userId) {
   return stmt.get(userId);
 }
 
-// GET /api/timer/active - Check for active timer session
+// GET /api/timer/active
+// Returns the raw active row (or null). The frontend derives remaining time client-side.
 router.get('/active', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -31,7 +36,8 @@ router.get('/active', async (req, res) => {
   }
 });
 
-// POST /api/timer/start - Start a (phase of a) timer session
+// POST /api/timer/start
+// Starts a new phase row. Used for both "start focus" and phase transitions.
 // Body: { session_template_id, duration_minutes, phase, current_cycle, target_cycles, session_group_id }
 router.post('/start', async (req, res) => {
   try {
@@ -83,7 +89,8 @@ router.post('/start', async (req, res) => {
   }
 });
 
-// POST /api/timer/pause - Pause current timer
+// POST /api/timer/pause
+// Marks the active row as paused=1. 404 if there's no active row.
 router.post('/pause', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -101,7 +108,8 @@ router.post('/pause', async (req, res) => {
   }
 });
 
-// POST /api/timer/resume - Resume paused timer
+// POST /api/timer/resume
+// Sets paused=0 on the active row. 404 if no active row is present.
 router.post('/resume', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -119,7 +127,8 @@ router.post('/resume', async (req, res) => {
   }
 });
 
-// POST /api/timer/stop - Manually stop and mark as completed
+// POST /api/timer/stop
+// Completes the active row (sets completed=1 and end_time=now). 404 if none active.
 router.post('/stop', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -142,7 +151,8 @@ router.post('/stop', async (req, res) => {
   }
 });
 
-// POST /api/timer/complete - Mark a specific timer row as completed
+// POST /api/timer/complete
+// Marks a specific row (by id) as completed; used for late finalization or admin-like flows.
 // Body: { timer_id }
 router.post('/complete', async (req, res) => {
   try {
@@ -167,7 +177,8 @@ router.post('/complete', async (req, res) => {
   }
 });
 
-// PATCH /api/timer/:id/notes - add/update notes (also used by Insights)
+// PATCH /api/timer/:id/notes
+// Adds/updates free-text notes attached to a specific timer row (used by Insights page).
 router.patch('/:id/notes', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -189,7 +200,8 @@ router.patch('/:id/notes', async (req, res) => {
   }
 });
 
-// (optional) GET /api/timer/history - last N sessions (raw rows)
+// GET /api/timer/history
+// Returns the latest N timer rows
 router.get('/history', async (req, res) => {
   try {
     const userId = req.user.id;

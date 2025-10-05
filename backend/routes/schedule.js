@@ -4,7 +4,11 @@ const { requireAuth } = require("../middleware/authMiddleware");
 
 router.use(requireAuth);
 
-// GET /api/schedule - Get scheduled sessions with template data
+// This router manages "scheduled_sessions": planned future focus blocks.
+// It joins to "sessions" (templates) when present, and always scopes by user.
+
+// GET /api/schedule
+// Returns each schedule item plus its linked template data (if any).
 router.get("/", async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -34,13 +38,14 @@ router.get("/", async (req, res) => {
     const stmt = db.prepare(query);
     const sessions = stmt.all(...params);
 
+    // Normalize SQLite values and embed template info under "session"
     const result = sessions.map(s => ({
       id: s.id,
       session_id: s.session_id,
       title: s.title,
       start_datetime: s.start_datetime,
       duration_min: s.duration_min,
-      completed: Boolean(s.completed), // Convert SQLite integer to boolean
+      completed: Boolean(s.completed),
       session: s.session_id ? {
         id: s.session_id,
         name: s.session_name,
@@ -57,7 +62,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/schedule - Create scheduled session
+// POST /api/schedule
+// Creates a schedule row. Either a template session_id OR a plain title must be provided.
 router.post("/", async (req, res) => {
   try {
     const { session_id = null, title = null, start_datetime, duration_min = 25 } = req.body || {};
@@ -69,7 +75,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "provide session_id or title" });
     }
 
-    // Validate session exists if session_id provided
+    // If a template is referenced, validate ownership/existence.
     if (session_id) {
       const sessionCheck = db.prepare('SELECT id FROM sessions WHERE id = ? AND user_id = ?');
       if (!sessionCheck.get(session_id, req.user.id)) {
@@ -82,9 +88,8 @@ router.post("/", async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(req.user.id, session_id, title, start_datetime, duration_min, 0); // Default completed to 0
+    const result = stmt.run(req.user.id, session_id, title, start_datetime, duration_min, 0);
 
-    // Return created session with template data
     const getQuery = `
       SELECT 
         ss.*,
@@ -105,7 +110,7 @@ router.post("/", async (req, res) => {
       title: created.title,
       start_datetime: created.start_datetime,
       duration_min: created.duration_min,
-      completed: Boolean(created.completed), // Convert to boolean
+      completed: Boolean(created.completed),
       session: created.session_id ? {
         id: created.session_id,
         name: created.session_name,
@@ -122,7 +127,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/schedule/:id - Update scheduled session
+// PUT /api/schedule/:id
+// Full update of a scheduled item; validates template ownership if provided.
 router.put("/:id", async (req, res) => {
   try {
     const { session_id, title, start_datetime, duration_min, completed } = req.body;
@@ -144,7 +150,6 @@ router.put("/:id", async (req, res) => {
       WHERE id = ? AND user_id = ?
     `);
 
-    // Convert boolean to integer for SQLite compatibility
     const completedValue = completed ? 1 : 0;
 
     const result = stmt.run(
@@ -161,7 +166,6 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Scheduled session not found" });
     }
 
-    // Return updated session
     const getQuery = `
       SELECT 
         ss.*,
@@ -182,7 +186,7 @@ router.put("/:id", async (req, res) => {
       title: updated.title,
       start_datetime: updated.start_datetime,
       duration_min: updated.duration_min,
-      completed: Boolean(updated.completed), // Convert back to boolean
+      completed: Boolean(updated.completed),
       session: updated.session_id ? {
         id: updated.session_id,
         name: updated.session_name,
@@ -199,7 +203,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/schedule/:id - Delete scheduled session
+// DELETE /api/schedule/:id
+// Removes a scheduled item (scoped by user).
 router.delete("/:id", async (req, res) => {
   try {
     const stmt = db.prepare('DELETE FROM scheduled_sessions WHERE id = ? AND user_id = ?');
