@@ -83,17 +83,29 @@ try { db.exec(`CREATE INDEX IF NOT EXISTS idx_timer_sessions_endtime ON timer_se
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+let supabase;
+
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing Supabase credentials for auth');
-  throw new Error('Missing Supabase credentials. Need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for auth');
-}
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+  if (process.env.NODE_ENV === 'test' || process.env.CI === 'true') {
+    console.log('Running in test mode - using mock Supabase client');
+    supabase = {
+      auth: {
+        getUser: async () => ({ data: { user: null }, error: new Error('Mock auth') }),
+      },
+    };
+  } else {
+    throw new Error('Missing Supabase credentials. Need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for auth');
+  }
+} else {
+  supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
 
 // Insights read model (SQL VIEW)
 try {
@@ -144,12 +156,11 @@ try {
     LEFT JOIN sessions s ON s.id = g.session_template_id;
   `);
 } catch (_) {
-  // ignore view recreation errors
 }
 
 try { db.exec(`DELETE FROM timer_sessions WHERE session_group_id IS NULL;`); } catch (_) {}
 
 module.exports = {
   db,       // SQLite database for app data
-  supabase, // Supabase client for auth
+  supabase, // Supabase client for auth (or mock in tests)
 };

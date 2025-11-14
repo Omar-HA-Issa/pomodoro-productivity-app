@@ -1,3 +1,5 @@
+process.env.NODE_ENV = 'test';
+
 // Set environment variables for tests
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://localhost:54321';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-key';
@@ -16,10 +18,18 @@ global.fetch = jest.fn(() =>
 
 // Silence console logs during tests in CI
 if (process.env.CI) {
+  const originalError = console.error;
   global.console = {
     ...console,
     log: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
+    error: jest.fn((...args) => {
+      // Suppress "Missing Supabase credentials" message in tests
+      if (args[0]?.includes?.('Missing Supabase credentials')) {
+        return;
+      }
+      originalError(...args);
+    }),
   };
 }
