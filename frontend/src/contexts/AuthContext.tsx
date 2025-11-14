@@ -32,7 +32,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(
 );
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:8000";
+  import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
 
 type JwtPayload = {
   sub: string;
@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   const checkAuth = async (token: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE}/api/sessions`, {
+      const response = await fetch(`${API_BASE}/sessions`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     password: string
   ): Promise<{ error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/signin`, {
+      const response = await fetch(`${API_BASE}/auth/signin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     metadata?: { first_name?: string; last_name?: string }
   ): Promise<{ error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/signup`, {
+      const response = await fetch(`${API_BASE}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,7 +160,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     try {
       const token = localStorage.getItem("auth_token");
       if (token) {
-        await fetch(`${API_BASE}/api/auth/signout`, {
+        await fetch(`${API_BASE}/auth/signout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         });
