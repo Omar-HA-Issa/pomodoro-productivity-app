@@ -162,5 +162,5 @@ try { db.exec(`DELETE FROM timer_sessions WHERE session_group_id IS NULL;`); } c
 
 module.exports = {
   db,       // SQLite database for app data
-  supabase, // Supabase client for auth (or mock in tests)
+  supabase, // Supabase client for auth
 };
