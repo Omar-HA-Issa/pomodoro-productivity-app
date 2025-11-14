@@ -6,8 +6,10 @@
     "test": "jest --coverage --verbose --forceExit",
     "test:watch": "jest --watch",
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo \"No compile step required for Node.js Express backend\""
   },
+
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -1,0 +1,30 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  node_version: '20.x'
+  backend_dir: 'backend'
+
+steps:
+  - task: NodeTool@0
+    displayName: "Use Node.js $(node_version)"
+    inputs:
+      versionSpec: '$(node_version)'
+
+  - script: |
+      cd $(backend_dir)
+      npm ci
+    displayName: "Install backend dependencies"
+
+  - script: |
+      cd $(backend_dir)
+      npm test
+    displayName: "Run Jest tests with coverage"
+
+  - script: |
+      cd $(backend_dir)
+      npm run build
+    displayName: "Build backend application"
