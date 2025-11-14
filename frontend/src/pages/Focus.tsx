@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { sessionsAPI, timerAPI } from '../lib/api';
 

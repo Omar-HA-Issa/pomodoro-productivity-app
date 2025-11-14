@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 
 interface User {
   id: string;
@@ -9,128 +15,172 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string, metadata?: { first_name?: string; last_name?: string }) => Promise<{ error?: string }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ error?: string }>;
+  signUp: (
+    email: string,
+    password: string,
+    metadata?: { first_name?: string; last_name?: string }
+  ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://your-api-url.com' 
-  : 'http://localhost:8000';
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+type JwtPayload = {
+  sub: string;
+  email: string;
+  created_at?: string;
+};
+
+function parseJwt(token: string): JwtPayload | null {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    return JSON.parse(atob(payload)) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      checkAuth(token);
-    } else {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
       setLoading(false);
+      return;
     }
+
+    void checkAuth(token);
   }, []);
 
-  const checkAuth = async (token: string) => {
+  const checkAuth = async (token: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_BASE}/api/sessions`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${API_BASE}/sessions`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (response.ok) {
-        const userData = JSON.parse(atob(token.split('.')[1]));
-        setUser({
-          id: userData.sub,
-          email: userData.email,
-          created_at: userData.created_at
-        });
+        const payload = parseJwt(token);
+        if (payload) {
+          setUser({
+            id: payload.sub,
+            email: payload.email,
+            created_at: payload.created_at ?? "",
+          });
+        } else {
+          localStorage.removeItem("auth_token");
+        }
       } else {
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem("auth_token");
       }
     } catch {
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem("auth_token");
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (
+    email: string,
+    password: string
+  ): Promise<{ error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/signin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      const response = await fetch(`${API_BASE}/auth/signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as {
+        error?: string;
+        session?: { access_token: string };
+        user?: User;
+      };
 
-      if (!response.ok) {
-        return { error: data.error || 'Login failed' };
+      if (!response.ok || !data.session || !data.user) {
+        return { error: data.error || "Login failed" };
       }
 
-      localStorage.setItem('auth_token', data.session.access_token);
+      localStorage.setItem("auth_token", data.session.access_token);
       setUser(data.user);
+
       return {};
     } catch {
-      return { error: 'Network error. Please try again.' };
+      return { error: "Network error. Please try again." };
     }
   };
 
-  const signUp = async (email: string, password: string, metadata?: { first_name?: string; last_name?: string }) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    metadata?: { first_name?: string; last_name?: string }
+  ): Promise<{ error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+      const response = await fetch(`${API_BASE}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           password,
           first_name: metadata?.first_name,
-          last_name: metadata?.last_name
-        })
+          last_name: metadata?.last_name,
+        }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as { error?: string };
+
       if (!response.ok) {
-        return {error: data.error || 'Signup failed'};
+        return { error: data.error || "Signup failed" };
       }
+
       return {};
     } catch {
-      return {error: 'Network error. Please try again.'};
+      return { error: "Network error. Please try again." };
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem("auth_token");
       if (token) {
-        await fetch(`${API_BASE}/api/auth/signout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` }
+        await fetch(`${API_BASE}/auth/signout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
         });
       }
-    } catch (error) {
-      console.error('Signout error:', error);
+    } catch (err) {
+      // optional: log error
+      console.error("Signout error:", err);
     } finally {
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem("auth_token");
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signUp, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
 };
 
 export default AuthProvider;
