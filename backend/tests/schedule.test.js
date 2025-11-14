@@ -3,7 +3,7 @@ jest.mock('../middleware/authMiddleware', () => ({
     if (!req.headers.authorization) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    req.user = { id: 'test-user-schedule' }; // Unique ID
+    req.user = { id: 'test-user-schedule' };
     next();
   },
 }));
@@ -13,36 +13,63 @@ const app = require('../server');
 const { db } = require('../database');
 
 const auth = (r) => r.set('Authorization', 'Bearer test-token');
-const userId = 'test-user-schedule'; // Unique ID for schedule tests
+const userId = 'test-user-schedule';
 
 function seedTemplate({ name = 'Template', focus = 25, brk = 5 } = {}) {
-  const info = db.prepare(`
+  const info = db
+    .prepare(
+      `
     INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
     VALUES (?, ?, '', ?, ?)
-  `).run(userId, name, focus, brk);
+  `
+    )
+    .run(userId, name, focus, brk);
   return info.lastInsertRowid;
 }
 
-function seedSchedule({ title = 'Meeting', start = '2025-10-15T10:00:00Z', sessionId = null } = {}) {
-  const info = db.prepare(`
+function seedSchedule({
+  title = 'Meeting',
+  start = '2025-10-15T10:00:00Z',
+  sessionId = null,
+} = {}) {
+  const info = db
+    .prepare(
+      `
     INSERT INTO scheduled_sessions (user_id, session_id, title, start_datetime)
     VALUES (?, ?, ?, ?)
-  `).run(userId, sessionId, title, start);
+  `
+    )
+    .run(userId, sessionId, title, start);
   return info.lastInsertRowid;
 }
 
 describe('Schedule API', () => {
   beforeEach(() => {
-    // Clean in correct order
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   afterAll(() => {
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   describe('POST /api/schedule', () => {
@@ -119,8 +146,10 @@ describe('Schedule API', () => {
       seedSchedule({ title: 'Mid', start: '2025-10-15T10:00:00Z' });
       seedSchedule({ title: 'Late', start: '2025-10-30T10:00:00Z' });
 
-      const res = await auth(request(app).get('/api/schedule'))
-        .query({ from: '2025-10-10', to: '2025-10-20' });
+      const res = await auth(request(app).get('/api/schedule')).query({
+        from: '2025-10-10',
+        to: '2025-10-20',
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
@@ -130,7 +159,10 @@ describe('Schedule API', () => {
 
   describe('PUT /api/schedule/:id', () => {
     it('updates scheduled session', async () => {
-      const id = seedSchedule({title: 'Original', start: '2025-10-15T10:00:00Z'});
+      const id = seedSchedule({
+        title: 'Original',
+        start: '2025-10-15T10:00:00Z',
+      });
 
       const res = await auth(request(app).put(`/api/schedule/${id}`)).send({
         title: 'Updated',
@@ -142,7 +174,9 @@ describe('Schedule API', () => {
     });
 
     it('returns 404 for non-existent session', async () => {
-      const res = await auth(request(app).put('/api/schedule/999999')).send({
+      const res = await auth(
+        request(app).put('/api/schedule/999999')
+      ).send({
         start_datetime: '2025-10-15T14:00:00Z',
         title: 'Test',
       });
@@ -153,13 +187,13 @@ describe('Schedule API', () => {
 
   describe('DELETE /api/schedule/:id', () => {
     it('deletes scheduled session', async () => {
-      const id = seedSchedule({title: 'DeleteMe'});
+      const id = seedSchedule({ title: 'DeleteMe' });
 
       const res = await auth(request(app).delete(`/api/schedule/${id}`));
       expect(res.status).toBe(204);
 
       const check = await auth(request(app).get(`/api/schedule`));
-      const found = check.body.find(s => s.id === id);
+      const found = check.body.find((s) => s.id === id);
       expect(found).toBeUndefined();
     });
 
@@ -170,11 +204,10 @@ describe('Schedule API', () => {
   });
 
   describe('Schedule API - Additional Coverage', () => {
-    it('creates scheduled session without optional duration_min', async () => {
+    it('creates scheduled session without optional duration_min (defaults to 25)', async () => {
       const res = await auth(request(app).post('/api/schedule')).send({
         title: 'Meeting',
         start_datetime: '2025-10-20T10:00:00Z',
-        // duration_min not provided, should default to 25
       });
       expect(res.status).toBe(201);
       expect(res.body.duration_min).toBe(25);
@@ -189,11 +222,12 @@ describe('Schedule API', () => {
     });
 
     it('filters schedule with only from parameter', async () => {
-      seedSchedule({title: 'Early', start: '2025-10-01T10:00:00Z'});
-      seedSchedule({title: 'Late', start: '2025-10-30T10:00:00Z'});
+      seedSchedule({ title: 'Early', start: '2025-10-01T10:00:00Z' });
+      seedSchedule({ title: 'Late', start: '2025-10-30T10:00:00Z' });
 
-      const res = await auth(request(app).get('/api/schedule'))
-          .query({from: '2025-10-15'});
+      const res = await auth(request(app).get('/api/schedule')).query({
+        from: '2025-10-15',
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
@@ -201,11 +235,12 @@ describe('Schedule API', () => {
     });
 
     it('filters schedule with only to parameter', async () => {
-      seedSchedule({title: 'Early', start: '2025-10-01T10:00:00Z'});
-      seedSchedule({title: 'Late', start: '2025-10-30T10:00:00Z'});
+      seedSchedule({ title: 'Early', start: '2025-10-01T10:00:00Z' });
+      seedSchedule({ title: 'Late', start: '2025-10-30T10:00:00Z' });
 
-      const res = await auth(request(app).get('/api/schedule'))
-          .query({to: '2025-10-15'});
+      const res = await auth(request(app).get('/api/schedule')).query({
+        to: '2025-10-15',
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
@@ -213,10 +248,19 @@ describe('Schedule API', () => {
     });
 
     it('updates schedule with all fields including completed', async () => {
-      const sessionId = seedTemplate({name: 'Template', focus: 30, brk: 10});
-      const scheduleId = seedSchedule({title: 'Original', start: '2025-10-20T10:00:00Z'});
+      const sessionId = seedTemplate({
+        name: 'Template',
+        focus: 30,
+        brk: 10,
+      });
+      const scheduleId = seedSchedule({
+        title: 'Original',
+        start: '2025-10-20T10:00:00Z',
+      });
 
-      const res = await auth(request(app).put(`/api/schedule/${scheduleId}`)).send({
+      const res = await auth(
+        request(app).put(`/api/schedule/${scheduleId}`)
+      ).send({
         session_id: sessionId,
         title: 'Updated',
         start_datetime: '2025-10-20T11:00:00Z',
@@ -230,12 +274,16 @@ describe('Schedule API', () => {
   });
 
   it('returns session with null template when session_id not provided', async () => {
-    const scheduleId = seedSchedule({title: 'Standalone', start: '2025-10-20T10:00:00Z', sessionId: null});
+    const scheduleId = seedSchedule({
+      title: 'Standalone',
+      start: '2025-10-20T10:00:00Z',
+      sessionId: null,
+    });
 
     const res = await auth(request(app).get('/api/schedule'));
     expect(res.status).toBe(200);
 
-    const found = res.body.find(s => s.id === scheduleId);
+    const found = res.body.find((s) => s.id === scheduleId);
     expect(found).toBeDefined();
     expect(found.session).toBeNull();
   });
@@ -243,7 +291,6 @@ describe('Schedule API', () => {
   it('validates missing both session_id and title', async () => {
     const res = await auth(request(app).post('/api/schedule')).send({
       start_datetime: '2025-10-20T10:00:00Z',
-      // Missing both session_id and title
     });
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('provide session_id or title');

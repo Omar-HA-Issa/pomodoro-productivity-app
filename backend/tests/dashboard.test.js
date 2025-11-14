@@ -98,9 +98,7 @@ describe('Dashboard API', () => {
     });
 
     it('calculates longest streak across multiple gaps', async () => {
-      // 3-day streak (10-12 days ago)
       [-12, -11, -10].forEach(offset => seedCompletedTimer({ when: createDate(offset) }));
-      // 2-day streak (yesterday and today)
       [-1, 0].forEach(offset => seedCompletedTimer({ when: createDate(offset) }));
 
       const res = await auth(request(app).get('/api/dashboard/streak'));
@@ -126,7 +124,7 @@ describe('Dashboard API', () => {
       expect(res.body).toEqual([]);
     });
 
-    it('returns only today\'s scheduled sessions', async () => {
+    it("returns only today's scheduled sessions", async () => {
       seedSchedule({ title: 'Today Meeting', start: createDate(0) });
       seedSchedule({ title: 'Tomorrow Meeting', start: createDate(1) });
 
@@ -176,7 +174,7 @@ describe('Dashboard API', () => {
     });
 
     it('returns stats for last 7 days only', async () => {
-      seedCompletedTimer({ minutes: 100, when: createDate(-10) }); // Too old
+      seedCompletedTimer({ minutes: 100, when: createDate(-10) });
       seedCompletedTimer({ minutes: 25, when: createDate(0) });
       seedCompletedTimer({ minutes: 30, when: createDate(0) });
 

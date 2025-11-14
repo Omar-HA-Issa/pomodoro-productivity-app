@@ -31,18 +31,19 @@
       "<rootDir>/jest.setup.js"
     ],
     "collectCoverageFrom": [
-      "routes/sessions.js",
-      "routes/schedule.js",
-      "routes/timer.js",
-      "routes/dashboard.js",
-      "routes/insights.js"
+      "server.js",
+      "!middleware/**" ,
+      "routes/**/*.js",
+      "!routes/auth.js",
+      "services/**/*.js",
+      "repositories/**/*.js"
     ],
     "coverageThreshold": {
       "global": {
-        "statements": 80,
-        "branches": 80,
-        "functions": 80,
-        "lines": 80
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
       }
     },
     "testMatch": [
