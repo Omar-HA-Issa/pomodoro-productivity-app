@@ -1,5 +1,5 @@
 trigger:
-  - main
+  - deployment
 
 pool:
   vmImage: ubuntu-latest
