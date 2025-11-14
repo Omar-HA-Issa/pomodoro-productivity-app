@@ -4,41 +4,18 @@ trigger:
 pool:
   name: Default
 
-# Force clean checkout - no cache
-workspace:
-  clean: all
-
 variables:
   backend_dir: 'backend'
   CI: 'true'
-  NODE_ENV: 'test'
   SUPABASE_URL: 'http://localhost:54321'
-  SUPABASE_SERVICE_ROLE_KEY: 'test-service-key'
+  SUPABASE_SERVICE_ROLE_KEY: 'test-key'
   SUPABASE_ANON_KEY: 'test-anon-key'
 
 steps:
-  # Clean npm cache
-  - script: |
-      cd $(backend_dir)
-      npm cache clean --force
-      rm -rf node_modules package-lock.json 2>/dev/null || true
-    displayName: "Clean npm cache"
-    continueOnError: true
-
   - script: |
       cd $(backend_dir)
       npm ci
-    displayName: "Install dependencies"
-
-  # Verify files are correct
-  - script: |
-      cd $(backend_dir)
-      echo "=== Verifying updated files ==="
-      grep "NODE_ENV" database.js && echo "✓ database.js updated" || echo "✗ database.js NOT updated"
-      grep "NODE_ENV = 'test'" jest.setup.js && echo "✓ jest.setup.js updated" || echo "✗ jest.setup.js NOT updated"
-      echo ""
-      echo "Environment: CI=$CI NODE_ENV=$NODE_ENV"
-    displayName: "Verify files"
+    displayName: "Install backend dependencies"
 
   - script: |
       cd $(backend_dir)
@@ -46,7 +23,6 @@ steps:
     displayName: "Run Jest tests with coverage"
     env:
       CI: $(CI)
-      NODE_ENV: $(NODE_ENV)
       SUPABASE_URL: $(SUPABASE_URL)
       SUPABASE_SERVICE_ROLE_KEY: $(SUPABASE_SERVICE_ROLE_KEY)
       SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
