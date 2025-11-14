@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 
 const authRouter = require("./routes/auth");
-const timerRouter = require("./routes/timer");
+const timerRouter = require("./routes/timer.routes");
 const sessionsRouter = require("./routes/sessions");
 const scheduleRouter = require("./routes/schedule");
 const dashboardRoutes = require('./routes/dashboard');
