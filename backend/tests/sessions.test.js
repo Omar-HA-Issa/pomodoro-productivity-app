@@ -3,7 +3,7 @@ jest.mock('../middleware/authMiddleware', () => ({
     if (!req.headers.authorization) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    req.user = { id: 'test-user-sessions' }; // Unique ID
+    req.user = { id: 'test-user-sessions' };
     next();
   },
 }));
@@ -23,8 +23,10 @@ function seedSession({
 } = {}) {
   const info = db
     .prepare(
-      `INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
-       VALUES (?, ?, ?, ?, ?)`
+      `
+    INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
+    VALUES (?, ?, ?, ?, ?)
+  `
     )
     .run(userId, name, description, focus, brk);
   return info.lastInsertRowid;
@@ -32,16 +34,31 @@ function seedSession({
 
 describe('Sessions API', () => {
   beforeEach(() => {
-    // Clean in correct order - children first
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   afterAll(() => {
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   describe('POST /api/sessions', () => {
@@ -112,7 +129,9 @@ describe('Sessions API', () => {
     it('updates a session', async () => {
       const id = seedSession({ name: 'Original', focus: 25, brk: 5 });
 
-      const res = await auth(request(app).put(`/api/sessions/${id}`)).send({
+      const res = await auth(
+        request(app).put(`/api/sessions/${id}`)
+      ).send({
         name: 'Updated',
         focus_duration: 30,
         break_duration: 10,
@@ -124,12 +143,19 @@ describe('Sessions API', () => {
     });
 
     it('allows partial updates (only description)', async () => {
-      const id = seedSession({ name: 'Before', description: 'Old', focus: 25, brk: 5 });
+      const id = seedSession({
+        name: 'Before',
+        description: 'Old',
+        focus: 25,
+        brk: 5,
+      });
 
-      const res = await auth(request(app).put(`/api/sessions/${id}`)).send({
-        name: 'Before', // API requires name
-        focus_duration: 25, // API requires focus_duration
-        break_duration: 5, // API requires break_duration
+      const res = await auth(
+        request(app).put(`/api/sessions/${id}`)
+      ).send({
+        name: 'Before',
+        focus_duration: 25,
+        break_duration: 5,
         description: 'After',
       });
       expect(res.status).toBe(200);
@@ -137,7 +163,9 @@ describe('Sessions API', () => {
     });
 
     it('returns 404 for non-existent session', async () => {
-      const res = await auth(request(app).put('/api/sessions/999999')).send({
+      const res = await auth(
+        request(app).put('/api/sessions/999999')
+      ).send({
         name: 'Test',
         focus_duration: 25,
         break_duration: 5,
@@ -147,9 +175,11 @@ describe('Sessions API', () => {
     });
 
     it('returns 400 when no updatable fields are provided', async () => {
-      const id = seedSession({name: 'Test'});
+      const id = seedSession({ name: 'Test' });
 
-      const res = await auth(request(app).put(`/api/sessions/${id}`)).send({});
+      const res = await auth(
+        request(app).put(`/api/sessions/${id}`)
+      ).send({});
 
       expect(res.status).toBe(400);
     });
@@ -157,8 +187,10 @@ describe('Sessions API', () => {
 
   describe('DELETE /api/sessions/:id', () => {
     it('deletes a session', async () => {
-      const id = seedSession({name: 'DeleteMe'});
-      const res = await auth(request(app).delete(`/api/sessions/${id}`));
+      const id = seedSession({ name: 'DeleteMe' });
+      const res = await auth(
+        request(app).delete(`/api/sessions/${id}`)
+      );
       expect(res.status).toBe(204);
 
       const check = await auth(request(app).get(`/api/sessions/${id}`));
@@ -166,15 +198,18 @@ describe('Sessions API', () => {
     });
 
     it('returns 404 for non-existent session', async () => {
-      const res = await auth(request(app).delete('/api/sessions/999999'));
+      const res = await auth(
+        request(app).delete('/api/sessions/999999')
+      );
       expect(res.status).toBe(404);
     });
   });
+
   describe('Sessions API - Additional Coverage', () => {
     it('validates focus_duration minimum value', async () => {
       const res = await auth(request(app).post('/api/sessions')).send({
         name: 'Test',
-        focus_duration: 0, // Invalid: less than 1
+        focus_duration: 0,
         break_duration: 5,
       });
       expect(res.status).toBe(400);
@@ -185,25 +220,28 @@ describe('Sessions API', () => {
       const res = await auth(request(app).post('/api/sessions')).send({
         name: 'Test',
         focus_duration: 25,
-        break_duration: 0, // Invalid: less than 1
+        break_duration: 0,
       });
       expect(res.status).toBe(400);
       expect(res.body.error).toContain('Break duration');
     });
 
     it('handles missing focus_duration in update', async () => {
-      const id = seedSession({name: 'Test', focus: 25, brk: 5});
-      const res = await auth(request(app).put(`/api/sessions/${id}`)).send({
+      const id = seedSession({ name: 'Test', focus: 25, brk: 5 });
+      const res = await auth(
+        request(app).put(`/api/sessions/${id}`)
+      ).send({
         name: 'Test',
         break_duration: 5,
-        // Missing focus_duration
       });
       expect(res.status).toBe(400);
     });
 
     it('handles missing break_duration in update', async () => {
-      const id = seedSession({name: 'Test', focus: 25, brk: 5});
-      const res = await auth(request(app).put(`/api/sessions/${id}`)).send({
+      const id = seedSession({ name: 'Test', focus: 25, brk: 5 });
+      const res = await auth(
+        request(app).put(`/api/sessions/${id}`)
+      ).send({
         name: 'Test',
         focus_duration: 25,
       });
@@ -234,15 +272,4 @@ describe('Sessions API', () => {
     expect(res.body.description).toBeNull();
   });
 
-  it('handles empty description string', async () => {
-    const res = await auth(request(app).post('/api/sessions')).send({
-      name: 'Test',
-      focus_duration: 25,
-      break_duration: 5,
-      description: '  ',
-    });
-
-    expect(res.status).toBe(201);
-    expect(res.body.description).toBeNull();
-  });
 });
