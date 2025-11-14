@@ -4,8 +4,8 @@ const cors = require("cors");
 
 const authRouter = require("./routes/auth");
 const timerRouter = require("./routes/timer.routes");
-const sessionsRouter = require("./routes/sessions");
-const scheduleRouter = require("./routes/schedule");
+const sessionsRouter = require("./routes/sessions.routes");
+const scheduleRouter = require("./routes/schedule.routes");
 const dashboardRoutes = require('./routes/dashboard');
 const { requireAuth } = require("./middleware/authMiddleware");
 const insightsRoutes = require('./routes/insights');
