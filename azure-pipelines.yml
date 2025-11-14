@@ -2,18 +2,12 @@ trigger:
   - deployment
 
 pool:
-  vmImage: ubuntu-latest
+  name: Default   # self-hosted agent pool
 
 variables:
-  node_version: '20.x'
   backend_dir: 'backend'
 
 steps:
-  - task: NodeTool@0
-    displayName: "Use Node.js $(node_version)"
-    inputs:
-      versionSpec: '$(node_version)'
-
   - script: |
       cd $(backend_dir)
       npm ci
