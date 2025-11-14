@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import React from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
@@ -7,7 +5,7 @@ import Navigation from "./components/Navigation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FullScreenLoader from "./components/FullScreenLoader";
 
-import { useAuth } from "./contexts/AuthContext";
+import { useAuth } from "./hooks/useAuth";
 
 // Public pages
 import Login from "./pages/auth_pages/Login";
