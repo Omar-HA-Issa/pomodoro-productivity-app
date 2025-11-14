@@ -5,11 +5,11 @@
   "scripts": {
     "test": "jest --coverage --verbose --forceExit",
     "test:watch": "jest --watch",
+    "test:debug": "jest --verbose --no-coverage --forceExit",
     "dev": "nodemon server.js",
     "start": "node server.js",
     "build": "echo \"No compile step required for Node.js Express backend\""
   },
-
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -34,7 +34,7 @@
     ],
     "collectCoverageFrom": [
       "server.js",
-      "!middleware/**" ,
+      "!middleware/**",
       "routes/**/*.js",
       "!routes/auth.js",
       "services/**/*.js",
@@ -49,7 +49,8 @@
       }
     },
     "testMatch": [
-      "**/tests/**/*.test.js"
+      "**/tests/**/*.test.js",
+      "**/__tests__/**/*.test.js"
     ]
   }
 }

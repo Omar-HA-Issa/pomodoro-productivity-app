@@ -2,10 +2,14 @@ trigger:
   - deployment
 
 pool:
-  name: Default   # self-hosted agent pool
+  name: Default
 
 variables:
   backend_dir: 'backend'
+  CI: 'true'
+  SUPABASE_URL: 'http://localhost:54321'
+  SUPABASE_SERVICE_ROLE_KEY: 'test-key'
+  SUPABASE_ANON_KEY: 'test-anon-key'
 
 steps:
   - script: |
@@ -17,6 +21,11 @@ steps:
       cd $(backend_dir)
       npm test
     displayName: "Run Jest tests with coverage"
+    env:
+      CI: $(CI)
+      SUPABASE_URL: $(SUPABASE_URL)
+      SUPABASE_SERVICE_ROLE_KEY: $(SUPABASE_SERVICE_ROLE_KEY)
+      SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
 
   - script: |
       cd $(backend_dir)
