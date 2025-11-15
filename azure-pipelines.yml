@@ -4,7 +4,7 @@ trigger:
 pool:
   name: Default
 
-# NUCLEAR OPTION - clean everything
+# Force clean checkout to avoid caching issues
 workspace:
   clean: all
 
@@ -12,41 +12,17 @@ variables:
   backend_dir: 'backend'
 
 steps:
-  # FORCE delete everything and recheckout
-  - checkout: self
-    clean: true
-    fetchDepth: 1
-
-  # Clean npm completely
-  - script: |
-      cd $(backend_dir)
-      rmdir /s /q node_modules 2>nul || true
-      del package-lock.json 2>nul || true
-      npm cache clean --force
-    displayName: "Nuclear clean - delete everything"
-    continueOnError: true
-
   - script: |
       cd $(backend_dir)
       npm ci
-    displayName: "Install dependencies"
-
-  # Verify the file is correct
-  - script: |
-      cd $(backend_dir)
-      echo "=== Checking database.js content ==="
-      findstr /C:"NODE_ENV" database.js && echo "FOUND NODE_ENV CHECK" || echo "ERROR: NODE_ENV CHECK NOT FOUND"
-      echo ""
-      echo "Showing lines 85-95 of database.js:"
-      powershell -Command "(Get-Content database.js)[84..94] -join \"`n\""
-    displayName: "Verify database.js has correct code"
+    displayName: "Install backend dependencies"
 
   - script: |
       cd $(backend_dir)
       npm test
-    displayName: "Run tests with coverage"
+    displayName: "Run Jest tests with coverage"
 
   - script: |
       cd $(backend_dir)
       npm run build
-    displayName: "Build"
+    displayName: "Build backend application"
