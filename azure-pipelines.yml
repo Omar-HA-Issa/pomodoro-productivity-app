@@ -69,33 +69,27 @@ stages:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
-      - stage: Deploy
-        displayName: "Deploy to Azure Web App (Container)"
-        dependsOn: Build_And_Push_Image
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      - job: DeployWebApp
+        displayName: "Deploy container to Web App"
+        pool:
+          name: Default
 
-        jobs:
-          - job: DeployWebApp
-            displayName: "Deploy container to Web App"
-            pool:
-              name: Default
+        steps:
+          - powershell: |
+              Write-Host "Setting container image on Web App..."
+              az webapp config container set `
+                --name pomodoroapp `
+                --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
+                --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
+                --docker-registry-server-url https://$(containerRegistry) `
+                --docker-registry-server-user $env:ACR_USERNAME `
+                --docker-registry-server-password $env:ACR_PASSWORD
 
-            steps:
-              - powershell: |
-                  Write-Host "Setting container image on Web App..."
-                  az webapp config container set `
-                    --name pomodoroapp `
-                    --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
-                    --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
-                    --docker-registry-server-url https://$(containerRegistry) `
-                    --docker-registry-server-user $env:ACR_USERNAME `
-                    --docker-registry-server-password $env:ACR_PASSWORD
-
-                  Write-Host "Restarting Web App..."
-                  az webapp restart `
-                    --name pomodoroapp `
-                    --resource-group BCSAI2025-DEVOPS-STUDENTS-A
-                displayName: "Update Web App container image"
-                env:
-                  ACR_USERNAME: $(ACR_USERNAME)
-                  ACR_PASSWORD: $(ACR_PASSWORD)
+              Write-Host "Restarting Web App..."
+              az webapp restart `
+                --name pomodoroapp `
+                --resource-group BCSAI2025-DEVOPS-STUDENTS-A
+            displayName: "Update Web App container image"
+            env:
+              ACR_USERNAME: $(ACR_USERNAME)
+              ACR_PASSWORD: $(ACR_PASSWORD)
