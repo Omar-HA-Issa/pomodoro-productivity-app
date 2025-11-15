@@ -1,5 +1,5 @@
 trigger:
-  - deployment
+  - main
 
 pool:
   name: Default
