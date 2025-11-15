@@ -12,6 +12,7 @@ variables:
   tag: '$(Build.BuildId)'
 
 stages:
+
   - stage: CI
     displayName: "Build & Test backend"
     jobs:
@@ -61,4 +62,39 @@ stages:
               buildContext: "$(Build.SourcesDirectory)/backend"
               tags: |
                 $(tag)
-  
+
+  - stage: Deploy
+    displayName: "Deploy to Azure Web App (Container)"
+    dependsOn: Build_And_Push_Image
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+    jobs:
+      - job: DeployWebApp
+        displayName: "Deploy container to Web App"
+        pool:
+          name: Default
+
+        steps:
+          - task: AzureCLI@2
+            displayName: "Update Web App container image"
+            inputs:
+              scriptType: pscore
+              scriptLocation: inlineScript
+              useGlobalConfig: true
+              inlineScript: |
+                Write-Host "Setting container image on Web App..."
+                az webapp config container set `
+                  --name pomodoroapp `
+                  --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
+                  --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
+                  --docker-registry-server-url https://$(containerRegistry) `
+                  --docker-registry-server-user $env:ACR_USERNAME `
+                  --docker-registry-server-password $env:ACR_PASSWORD
+
+                Write-Host "Restarting Web App..."
+                az webapp restart `
+                  --name pomodoroapp `
+                  --resource-group BCSAI2025-DEVOPS-STUDENTS-A
+            env:
+              ACR_USERNAME: $(ACR_USERNAME)
+              ACR_PASSWORD: $(ACR_PASSWORD)
