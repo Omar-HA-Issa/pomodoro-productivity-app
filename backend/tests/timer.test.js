@@ -16,29 +16,52 @@ const auth = (r) => r.set('Authorization', 'Bearer test-token');
 const userId = 'test-user-timer';
 
 function seedTemplate({ name = 'TestTemplate', focus = 25, brk = 5 } = {}) {
-  const info = db.prepare(
-    `INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
-     VALUES (?, ?, '', ?, ?)`
-  ).run(userId, name, focus, brk);
+  const info = db
+    .prepare(
+      `
+    INSERT INTO sessions (user_id, name, description, focus_duration, break_duration)
+    VALUES (?, ?, '', ?, ?)
+  `
+    )
+    .run(userId, name, focus, brk);
   return info.lastInsertRowid;
 }
 
 async function startTimer(overrides = {}) {
   const defaults = { duration_minutes: 25, phase: 'focus' };
-  return auth(request(app).post('/api/timer/start')).send({ ...defaults, ...overrides });
+  return auth(request(app).post('/api/timer/start')).send({
+    ...defaults,
+    ...overrides,
+  });
 }
 
 describe('Timer API', () => {
   beforeEach(() => {
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   afterAll(() => {
-    try { db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM scheduled_sessions WHERE user_id = ?').run(userId); } catch (e) {}
-    try { db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId); } catch (e) {}
+    try {
+      db.prepare('DELETE FROM timer_sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
+    try {
+      db
+        .prepare('DELETE FROM scheduled_sessions WHERE user_id = ?')
+        .run(userId);
+    } catch (e) {}
+    try {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    } catch (e) {}
   });
 
   describe('POST /api/timer/start', () => {
@@ -89,7 +112,11 @@ describe('Timer API', () => {
 
     it('starts timer with session_group_id', async () => {
       const groupId = `group_${Date.now()}`;
-      const res = await startTimer({ session_group_id: groupId, current_cycle: 1, target_cycles: 4 });
+      const res = await startTimer({
+        session_group_id: groupId,
+        current_cycle: 1,
+        target_cycles: 4,
+      });
       expect(res.status).toBe(201);
       expect(res.body.session_group_id).toBe(groupId);
     });
@@ -99,7 +126,9 @@ describe('Timer API', () => {
       [{ duration_minutes: 'not-a-number', phase: 'focus' }, 'duration_minutes'],
       [{ duration_minutes: 25, phase: 'invalid_phase' }, 'Invalid phase'],
     ])('validates start request: %j', async (payload, errorMsg) => {
-      const res = await auth(request(app).post('/api/timer/start')).send(payload);
+      const res = await auth(
+        request(app).post('/api/timer/start')
+      ).send(payload);
       expect(res.status).toBe(400);
       expect(res.body.error).toContain(errorMsg);
     });
@@ -128,12 +157,16 @@ describe('Timer API', () => {
       ['stop', 'completed', 1],
     ])('%s timer successfully', async (action, field, expectedValue) => {
       await startTimer();
-      if (action === 'resume') await auth(request(app).post('/api/timer/pause'));
+      if (action === 'resume') {
+        await auth(request(app).post('/api/timer/pause'));
+      }
 
       const res = await auth(request(app).post(`/api/timer/${action}`));
       expect(res.status).toBe(200);
       expect(res.body[field]).toBe(expectedValue);
-      if (action === 'stop') expect(res.body.end_time).toBeDefined();
+      if (action === 'stop') {
+        expect(res.body.end_time).toBeDefined();
+      }
     });
 
     it.each(['pause', 'resume', 'stop'])(
@@ -148,21 +181,29 @@ describe('Timer API', () => {
 
   describe('POST /api/timer/complete', () => {
     it('marks timer as complete', async () => {
-      const { body: { id } } = await startTimer();
-      const res = await auth(request(app).post('/api/timer/complete')).send({ timer_id: id });
+      const {
+        body: { id },
+      } = await startTimer();
+      const res = await auth(
+        request(app).post('/api/timer/complete')
+      ).send({ timer_id: id });
       expect(res.status).toBe(200);
       expect(res.body.completed).toBe(1);
       expect(res.body.end_time).toBeDefined();
     });
 
     it('requires timer_id', async () => {
-      const res = await auth(request(app).post('/api/timer/complete')).send({});
+      const res = await auth(
+        request(app).post('/api/timer/complete')
+      ).send({});
       expect(res.status).toBe(400);
       expect(res.body.error).toContain('timer_id');
     });
 
     it('returns 404 for non-existent timer', async () => {
-      const res = await auth(request(app).post('/api/timer/complete')).send({ timer_id: 999999 });
+      const res = await auth(
+        request(app).post('/api/timer/complete')
+      ).send({ timer_id: 999999 });
       expect(res.status).toBe(404);
       expect(res.body.error).toContain('not found');
     });
@@ -170,24 +211,32 @@ describe('Timer API', () => {
 
   describe('PATCH /api/timer/:id/notes', () => {
     it('updates notes on timer session', async () => {
-      const { body: { id } } = await startTimer();
-      const res = await auth(request(app).patch(`/api/timer/${id}/notes`))
-        .send({ notes: 'Great focus session!' });
+      const {
+        body: { id },
+      } = await startTimer();
+      const res = await auth(
+        request(app).patch(`/api/timer/${id}/notes`)
+      ).send({ notes: 'Great focus session!' });
       expect(res.status).toBe(200);
       expect(res.body.notes).toBe('Great focus session!');
     });
 
     it('returns 404 for non-existent timer', async () => {
-      const res = await auth(request(app).patch('/api/timer/999999/notes'))
-        .send({ notes: 'Test notes' });
+      const res = await auth(
+        request(app).patch('/api/timer/999999/notes')
+      ).send({ notes: 'Test notes' });
       expect(res.status).toBe(404);
     });
   });
 
   describe('GET /api/timer/history', () => {
     it('fetches timer history', async () => {
-      const { body: { id } } = await startTimer();
-      await auth(request(app).post('/api/timer/complete')).send({ timer_id: id });
+      const {
+        body: { id },
+      } = await startTimer();
+      await auth(request(app).post('/api/timer/complete')).send({
+        timer_id: id,
+      });
 
       const res = await auth(request(app).get('/api/timer/history'));
       expect(res.status).toBe(200);
@@ -196,7 +245,9 @@ describe('Timer API', () => {
     });
 
     it('fetches history with custom limit', async () => {
-      const res = await auth(request(app).get('/api/timer/history?limit=10'));
+      const res = await auth(
+        request(app).get('/api/timer/history?limit=10')
+      );
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
     });

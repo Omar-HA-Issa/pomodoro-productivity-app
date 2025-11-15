@@ -1,4 +1,3 @@
-// src/pages/Insights.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { Brain, Clock, RefreshCw, CheckCircle2, Search, ChevronRight } from 'lucide-react';
 import { insightsAPI } from '../lib/api';

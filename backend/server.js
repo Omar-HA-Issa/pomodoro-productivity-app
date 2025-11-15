@@ -3,12 +3,12 @@ const express = require("express");
 const cors = require("cors");
 
 const authRouter = require("./routes/auth");
-const timerRouter = require("./routes/timer");
-const sessionsRouter = require("./routes/sessions");
-const scheduleRouter = require("./routes/schedule");
-const dashboardRoutes = require('./routes/dashboard');
+const timerRouter = require("./routes/timer.routes");
+const sessionsRouter = require("./routes/sessions.routes");
+const scheduleRouter = require("./routes/schedule.routes");
+const dashboardRoutes = require('./routes/dashboard.routes');
 const { requireAuth } = require("./middleware/authMiddleware");
-const insightsRoutes = require('./routes/insights');
+const insightsRoutes = require('./routes/insights.routes');
 
 const app = express();
 const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:5174")
