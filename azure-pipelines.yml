@@ -16,13 +16,6 @@ steps:
       npm ci
     displayName: "Install backend dependencies"
 
-  # Delete any existing database file to avoid corruption
-  - script: |
-      cd $(backend_dir)
-      del pomodoro.db 2>nul || echo "No database to delete"
-    displayName: "Clean database file"
-    continueOnError: true
-
   - script: |
       cd $(backend_dir)
       npm test
