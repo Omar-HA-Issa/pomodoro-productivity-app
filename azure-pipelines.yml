@@ -76,8 +76,16 @@ stages:
 
         steps:
           - powershell: |
+              $ErrorActionPreference = "Stop"
+
+              # Full path to az.cmd so we don't rely on PATH
+              $azPath = "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
+
+              Write-Host "Using Azure CLI at: $azPath"
+              & "$azPath" --version
+
               Write-Host "Setting container image on Web App..."
-              az webapp config container set `
+              & "$azPath" webapp config container set `
                 --name pomodoroapp `
                 --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
                 --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
@@ -86,10 +94,11 @@ stages:
                 --docker-registry-server-password $env:ACR_PASSWORD
 
               Write-Host "Restarting Web App..."
-              az webapp restart `
+              & "$azPath" webapp restart `
                 --name pomodoroapp `
                 --resource-group BCSAI2025-DEVOPS-STUDENTS-A
             displayName: "Update Web App container image"
             env:
               ACR_USERNAME: $(ACR_USERNAME)
               ACR_PASSWORD: $(ACR_PASSWORD)
+
