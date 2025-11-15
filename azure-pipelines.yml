@@ -1,8 +1,11 @@
 trigger:
-  - main
+  branches:
+    include:
+      - main
+      - deployment
 
 pool:
-  name: Default
+  vmImage: ubuntu-latest
 
 workspace:
   clean: all
