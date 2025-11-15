@@ -1,0 +1,28 @@
+trigger:
+  - deployment
+
+pool:
+  name: Default
+
+# Force clean checkout to avoid caching issues
+workspace:
+  clean: all
+
+variables:
+  backend_dir: 'backend'
+
+steps:
+  - script: |
+      cd $(backend_dir)
+      npm ci
+    displayName: "Install backend dependencies"
+
+  - script: |
+      cd $(backend_dir)
+      npm test
+    displayName: "Run Jest tests with coverage"
+
+  - script: |
+      cd $(backend_dir)
+      npm run build
+    displayName: "Build backend application"
