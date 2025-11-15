@@ -2,7 +2,7 @@ trigger:
   branches:
     include:
       - main
-      - deployment
+
 
 variables:
   backend_dir: 'backend'
@@ -69,32 +69,33 @@ stages:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
-      - job: DeployWebApp
-        displayName: "Deploy container to Web App"
-        pool:
-          name: Default
+      - stage: Deploy
+        displayName: "Deploy to Azure Web App (Container)"
+        dependsOn: Build_And_Push_Image
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
-        steps:
-          - task: AzureCLI@2
-            displayName: "Update Web App container image"
-            inputs:
-              scriptType: pscore
-              scriptLocation: inlineScript
-              useGlobalConfig: true
-              inlineScript: |
-                Write-Host "Setting container image on Web App..."
-                az webapp config container set `
-                  --name pomodoroapp `
-                  --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
-                  --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
-                  --docker-registry-server-url https://$(containerRegistry) `
-                  --docker-registry-server-user $env:ACR_USERNAME `
-                  --docker-registry-server-password $env:ACR_PASSWORD
+        jobs:
+          - job: DeployWebApp
+            displayName: "Deploy container to Web App"
+            pool:
+              name: Default
 
-                Write-Host "Restarting Web App..."
-                az webapp restart `
-                  --name pomodoroapp `
-                  --resource-group BCSAI2025-DEVOPS-STUDENTS-A
-            env:
-              ACR_USERNAME: $(ACR_USERNAME)
-              ACR_PASSWORD: $(ACR_PASSWORD)
+            steps:
+              - powershell: |
+                  Write-Host "Setting container image on Web App..."
+                  az webapp config container set `
+                    --name pomodoroapp `
+                    --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
+                    --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
+                    --docker-registry-server-url https://$(containerRegistry) `
+                    --docker-registry-server-user $env:ACR_USERNAME `
+                    --docker-registry-server-password $env:ACR_PASSWORD
+
+                  Write-Host "Restarting Web App..."
+                  az webapp restart `
+                    --name pomodoroapp `
+                    --resource-group BCSAI2025-DEVOPS-STUDENTS-A
+                displayName: "Update Web App container image"
+                env:
+                  ACR_USERNAME: $(ACR_USERNAME)
+                  ACR_PASSWORD: $(ACR_PASSWORD)
