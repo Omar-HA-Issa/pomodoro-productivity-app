@@ -4,27 +4,59 @@ trigger:
       - main
       - deployment
 
-pool:
-  name: Default
-
-workspace:
-  clean: all
-
 variables:
   backend_dir: 'backend'
+  imageRepository: 'pomodoroapp'
+  containerRegistry: 'pomodoroapp.azurecr.io'
+  dockerRegistryServiceConnection: 'pomodoroapp-acr-connection'
+  tag: '$(Build.BuildId)'
 
-steps:
-  - script: |
-      cd $(backend_dir)
-      npm ci
-    displayName: "Install backend dependencies"
+stages:
+  - stage: CI
+    displayName: "Build & Test backend"
+    jobs:
+      - job: Backend_CI
+        displayName: "Run backend tests with coverage"
+        pool:
+          name: Default
 
-  - script: |
-      cd $(backend_dir)
-      npm test
-    displayName: "Run Jest tests with coverage"
+        workspace:
+          clean: all
 
-  - script: |
-      cd $(backend_dir)
-      npm run build
-    displayName: "Build backend application"
+        steps:
+          - script: |
+              cd $(backend_dir)
+              npm ci
+            displayName: "Install backend dependencies"
+
+          - script: |
+              cd $(backend_dir)
+              npm test
+            displayName: "Run Jest tests with coverage"
+
+          - script: |
+              cd $(backend_dir)
+              npm run build
+            displayName: "Build backend application"
+
+  - stage: Build_And_Push_Image
+    displayName: "Build & push Docker image to ACR"
+    dependsOn: CI
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+    jobs:
+      - job: Docker_Build_Push
+        displayName: "Docker build & push"
+        pool:
+          name: Default
+
+        steps:
+          - task: Docker@2
+            displayName: "Build and push image to ACR"
+            inputs:
+              command: "buildAndPush"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
+              dockerfile: "Dockerfile"
+              tags: |
+                $(tag)
