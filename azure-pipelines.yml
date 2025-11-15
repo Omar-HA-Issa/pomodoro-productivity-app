@@ -1,10 +1,9 @@
 trigger:
-  - deployment
+  - main
 
 pool:
   name: Default
 
-# Force clean checkout to avoid caching issues
 workspace:
   clean: all
 
