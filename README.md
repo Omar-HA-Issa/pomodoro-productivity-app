@@ -70,8 +70,6 @@ Follow these steps to set up your environment variables:
 
 2. **Fill in the values** from each `.env.example` into your new `.env` files.
 
-> **Note:** The required API keys for the backend `.env` file are provided in the Blackboard submission.
-
 ---
 
 ### 3. Install Dependencies & Run
@@ -117,12 +115,12 @@ The project uses **Azure DevOps Pipelines** for full automation, including CI, C
 
 The CI pipeline performs the following tasks:
 
-✔ Install Dependencies  
-✔ Run Jest Tests  
-✔ Generate Coverage Report  
-✔ Fail Pipeline if Coverage < 70%  
-✔ Build the Backend (Node.js)  
-✔ Build the Frontend (React)  
+- Install Dependencies  
+- Run Jest Tests  
+- Generate Coverage Report  
+- Fail Pipeline if Coverage < 70%  
+- Build the Backend (Node.js)  
+- Build the Frontend (React)  
 
 All CI steps are defined inside:
 
@@ -179,6 +177,8 @@ Returns the application's live status:
   "timestamp": "2025-11-15T21:29:25.412Z"
 }
 ```
+
+---
 
 ## Metrics Endpoint (Prometheus):
 
