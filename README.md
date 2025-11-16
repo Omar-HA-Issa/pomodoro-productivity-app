@@ -1,24 +1,53 @@
 # Pomodoro Productivity App
 
-A full-stack productivity application implementing the Pomodoro Technique with focus timers, session templates, and scheduling.
+A full-stack productivity application implementing the Pomodoro Technique with focus timers, session templates, scheduling, AI insights, and full DevOps automation using Azure DevOps Pipelines.
 
 ## Features
 
-- **Focus Timer**: Cycles between 'Focus' sessions and 'Break' sessions
-- **Session Templates**: CRUD for reusable timer configurations for pomodoro sessions
-- **Calendar Scheduling**: Schedule sessions for specific dates/times
-- **Dashboard**: Track streaks, sessions, and today's schedule
-- **Insights**: View completed sessions with AI sentiment analysis using Hugging Face API
+- **Focus Timer** – Cycles between focus/break intervals  
+- **Session Templates** – Create and reuse Pomodoro presets  
+- **Calendar Scheduling** – Plan sessions for specific dates  
+- **Dashboard** – Track streaks, stats, daily schedule  
+- **Insights** – AI sentiment analysis on completed sessions  
+- **Azure Health Check & Monitoring** – `/health` endpoint + Prometheus-style metrics  
+- **CI/CD via Azure DevOps** – Automated tests, coverage gates, Docker builds, and Azure deployment
+
+---
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express, SQLite, Supabase Auth, Jest   
-- **Frontend**: React, TypeScript, React Router, Context API
+### **Backend**
+- Node.js  
+- Express  
+- SQLite  
+- Supabase Auth  
+- Jest (70%+ coverage)  
+- Prometheus client  
+- Dockerized for deployment
+
+### **Frontend**
+- React  
+- TypeScript  
+- React Router  
+- Context API  
+
+### **DevOps**
+- Azure DevOps CI Pipeline  
+- Azure DevOps CD Pipeline  
+- Docker container build & push  
+- Azure Web App for Containers (deployment target)  
+- Prometheus metrics integration
+
+---
 
 ## Prerequisites
 
-- Node.js (v16+)
-- npm
+- Node.js (v16+)  
+- npm  
+- Docker  
+- Azure DevOps project (for CI/CD)
+
+---
 
 ## Installation & Run
 
@@ -76,17 +105,94 @@ npm test
 ```
 This will run Jest with coverage reporting.
 
+--- 
 
-## Branches Overview
+## CI/CD with Azure DevOps
 
-This repository contains three main branches used during development:
+The project uses **Azure DevOps Pipelines** for full automation, including CI, CD, Docker deployment, and monitoring.
 
-- **`main`**: The primary production branch containing the final, stable version of the app.  
-- **`backup`**: Created during the transition from Supabase to SQLite to prevent app-breaking errors.  
-- **`clean_up`**: Used for optimizing code, improving readability, and adding clearer explanations and documentation throughout the project.  
+---
 
-Each branch served a specific purpose during different stages of development, ensuring stability as the application was being developed.
-## Project Structure
+## Continuous Integration (CI) Pipeline
+
+The CI pipeline performs the following tasks:
+
+✔ Install Dependencies  
+✔ Run Jest Tests  
+✔ Generate Coverage Report  
+✔ Fail Pipeline if Coverage < 70%  
+✔ Build the Backend (Node.js)  
+✔ Build the Frontend (React)  
+
+All CI steps are defined inside:
+
+**`azure-pipelines.yml`** (located in the project root)
+
+---
+
+## Continuous Deployment (CD)
+
+The CD pipeline handles deployment through:
+
+### **Docker Containerization**
+- Builds the backend Docker image  
+- Pushes the container to **Azure Container Registry (ACR)**  
+- Deploys automatically to **Azure Web App for Containers**
+
+### **Triggering**
+- CD runs **only** when changes are pushed to the **main** branch  
+- Secrets (registry credentials, API keys, ACR passwords) are stored securely in **Azure DevOps variable groups**
+
+---
+
+## Docker & Deployment
+
+The backend service is fully containerized and can be run locally or via Azure.
+
+### **Build Docker image:**
+```bash
+cd backend
+docker build -t pomodoro-backend .
+```
+
+### **Run Container Locally:**
+```bash
+docker run -p 8000:8000 pomodoro-backend
+```
+
+- The backend is now reachable at: `http://localhost:8000`
+- Azure DevOps pipelines automatically run these same steps during deployment.
+
+---
+
+## Monitoring & Health Checks
+  
+### */health* Endpoint
+
+Returns the application's live status:
+
+```bash
+{
+  "status": "ok",
+  "ok": true,
+  "uptime": 123.45,
+  "timestamp": "2025-11-15T21:29:25.412Z"
+}
+```
+
+## Metrics Endpoint (Prometheus):
+
+Exposes the following monitoring metrics:
+
+1) Request count
+2) Request latency
+3) Error count
+
+These metrics can be scraped by Prometheus or connected to Grafana dashboards.
+
+---
+
+## File Structure
 
 **Backend:**
 - `routes/` - API endpoints (sessions, timer, schedule, dashboard, insights)
@@ -104,6 +210,8 @@ Each branch served a specific purpose during different stages of development, en
 - `src/lib/api.ts` - Backend API client for all HTTP requests
 - `src/contexts/` - AuthContext
 
+---
+
 ## API Overview
 
 All endpoints require authentication via Bearer token.
@@ -114,17 +222,12 @@ All endpoints require authentication via Bearer token.
 **Dashboard**: `/api/dashboard/overview|streak|stats` - Overview of the sessions  
 **Insights**: `/api/insights/completed-sessions|analyze` - Analytics of sessions using sentiment analysis
 
+---
+
 ## Database Overview
 
 SQLite database (`pomodoro.db`) is auto-generated on first run with tables:
 - `sessions`:  Session templates
 - `timer_sessions`: Timer records with sentiment tracking
 - `scheduled_sessions`: Calendar events
-
-## Troubleshooting
-
-**Port conflicts**: Backend uses 8000, frontend uses 5173. Change in `.env` if needed.
-
-**Database reset**: `rm backend/pomodoro.db` then restart server
-
 
