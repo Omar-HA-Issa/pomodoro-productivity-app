@@ -2,22 +2,33 @@ trigger:
   branches:
     include:
       - main
-
+      - deployment
 
 variables:
+  # Backend
   backend_dir: 'backend'
-  imageRepository: 'pomodoroapp'
+  backend_imageRepository: 'pomodoroapp'
+
+  # Frontend
+  frontend_dir: 'frontend'
+  frontend_imageRepository: 'pomodoroapp-frontend'
+
+  # Shared
   containerRegistry: 'pomodoroapp.azurecr.io'
   dockerRegistryServiceConnection: 'pomodoroapp-acr-connection'
   tag: '$(Build.BuildId)'
 
 stages:
 
+  # =========================
+  # 1) CI: build & test both
+  # =========================
   - stage: CI
-    displayName: "Build & Test backend"
+    displayName: "Build & Test backend and frontend"
     jobs:
+
       - job: Backend_CI
-        displayName: "Run backend tests with coverage"
+        displayName: "Backend - tests with coverage"
         pool:
           name: Default
 
@@ -33,44 +44,91 @@ stages:
           - script: |
               cd $(backend_dir)
               npm test
-            displayName: "Run Jest tests with coverage"
+            displayName: "Run backend Jest tests with coverage"
 
           - script: |
               cd $(backend_dir)
               npm run build
             displayName: "Build backend application"
 
+      - job: Frontend_CI
+        displayName: "Frontend - tests & build"
+        pool:
+          name: Default
+
+        workspace:
+          clean: all
+
+        steps:
+          - script: |
+              cd $(frontend_dir)
+              npm ci
+            displayName: "Install frontend dependencies"
+
+          # Optional: if you have unit tests for frontend
+          - script: |
+              cd $(frontend_dir)
+              npm test -- --watch=false
+            displayName: "Run frontend tests"
+            continueOnError: true    # remove this if tests must be green
+
+          - script: |
+              cd $(frontend_dir)
+              npm run build
+            displayName: "Build frontend application"
+
+
+  # ====================================
+  # 2) Build & push BOTH Docker images
+  # ====================================
   - stage: Build_And_Push_Image
-    displayName: "Build & push Docker image to ACR"
+    displayName: "Build & push Docker images to ACR"
     dependsOn: CI
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
       - job: Docker_Build_Push
-        displayName: "Docker build & push"
+        displayName: "Docker build & push backend + frontend"
         pool:
           name: Default
 
         steps:
+          # Backend image
           - task: Docker@2
-            displayName: "Build and push image to ACR"
+            displayName: "Build and push BACKEND image to ACR"
             inputs:
               command: "buildAndPush"
               containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
+              repository: "$(backend_imageRepository)"
               dockerfile: "backend/Dockerfile"
               buildContext: "$(Build.SourcesDirectory)/backend"
               tags: |
                 $(tag)
 
+          # Frontend image
+          - task: Docker@2
+            displayName: "Build and push FRONTEND image to ACR"
+            inputs:
+              command: "buildAndPush"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(frontend_imageRepository)"
+              dockerfile: "frontend/Dockerfile"
+              buildContext: "$(Build.SourcesDirectory)/frontend"
+              tags: |
+                $(tag)
+
+
+  # ==============================
+  # 3) Deploy both Web Apps
+  # ==============================
   - stage: Deploy
-    displayName: "Deploy to Azure Web App (Container)"
+    displayName: "Deploy backend & frontend to Azure Web Apps (Containers)"
     dependsOn: Build_And_Push_Image
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     jobs:
-      - job: DeployWebApp
-        displayName: "Deploy container to Web App"
+      - job: DeployWebApps
+        displayName: "Update Web App containers"
         pool:
           name: Default
 
@@ -84,21 +142,37 @@ stages:
               Write-Host "Using Azure CLI at: $azPath"
               & "$azPath" --version
 
-              Write-Host "Setting container image on Web App..."
+              # ---------- BACKEND ----------
+              Write-Host "Setting BACKEND container image on Web App..."
               & "$azPath" webapp config container set `
                 --name pomodoroapp `
                 --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
-                --docker-custom-image-name $(containerRegistry)/$(imageRepository):$(tag) `
+                --docker-custom-image-name $(containerRegistry)/$(backend_imageRepository):$(tag) `
                 --docker-registry-server-url https://$(containerRegistry) `
                 --docker-registry-server-user $env:ACR_USERNAME `
                 --docker-registry-server-password $env:ACR_PASSWORD
 
-              Write-Host "Restarting Web App..."
+              # ---------- FRONTEND ----------
+              Write-Host "Setting FRONTEND container image on Web App..."
+              & "$azPath" webapp config container set `
+                --name pomodoroapp-frontend `
+                --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
+                --docker-custom-image-name $(containerRegistry)/$(frontend_imageRepository):$(tag) `
+                --docker-registry-server-url https://$(containerRegistry) `
+                --docker-registry-server-user $env:ACR_USERNAME `
+                --docker-registry-server-password $env:ACR_PASSWORD
+
+              Write-Host "Restarting BACKEND Web App..."
               & "$azPath" webapp restart `
                 --name pomodoroapp `
                 --resource-group BCSAI2025-DEVOPS-STUDENTS-A
-            displayName: "Update Web App container image"
+
+              Write-Host "Restarting FRONTEND Web App..."
+              & "$azPath" webapp restart `
+                --name pomodoroapp-frontend `
+                --resource-group BCSAI2025-DEVOPS-STUDENTS-A
+
+            displayName: "Update backend & frontend Web App containers"
             env:
               ACR_USERNAME: $(ACR_USERNAME)
               ACR_PASSWORD: $(ACR_PASSWORD)
-
