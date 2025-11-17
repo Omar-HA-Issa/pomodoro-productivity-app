@@ -138,3 +138,6 @@ vite.config.ts.timestamp-*
 # SQLite database files
 backend/*.db
 backend/*.sqlite
+
+# Allow frontend production env for Azure build
+!frontend/.env.production
