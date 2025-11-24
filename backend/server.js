@@ -13,15 +13,33 @@ const insightsRoutes = require("./routes/insights.routes");
 
 const app = express();
 
-// CORS + JSON setup
-const corsOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173,http://localhost:5174")
+/* ---------------------------
+   CORS CONFIG
+---------------------------- */
+const corsOrigins = (
+  process.env.CORS_ORIGINS ||
+  "http://localhost:5173,http://localhost:5174"
+)
   .split(",")
   .map((s) => s.trim());
 
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+// IMPORTANT: handle preflight for all routes
+app.options("*", cors());
+
 app.use(express.json());
 
-// Prometheus Metrics
+/* ---------------------------
+   PROMETHEUS METRICS
+---------------------------- */
 client.collectDefaultMetrics();
 
 const httpRequestCounter = new client.Counter({
@@ -68,7 +86,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health Endpoints
+/* ---------------------------
+   HEALTH + METRICS
+---------------------------- */
 const healthHandler = (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -78,13 +98,9 @@ const healthHandler = (_req, res) => {
   });
 };
 
-// Root health check (for load balancers / monitoring)
 app.get("/health", healthHandler);
-
-// Existing API health check
 app.get("/api/health", healthHandler);
 
-// Metrics Endpoint
 app.get("/metrics", async (_req, res) => {
   try {
     res.set("Content-Type", client.register.contentType);
@@ -95,7 +111,9 @@ app.get("/metrics", async (_req, res) => {
   }
 });
 
-// App Routes
+/* ---------------------------
+   ROUTES
+---------------------------- */
 app.use("/api/auth", authRouter);
 app.use("/api/timer", requireAuth, timerRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
@@ -105,6 +123,9 @@ app.use("/api/insights", insightsRoutes);
 
 module.exports = app;
 
+/* ---------------------------
+   SERVER START
+---------------------------- */
 if (require.main === module) {
   const PORT = process.env.PORT || 8000;
   app.listen(PORT, () => {

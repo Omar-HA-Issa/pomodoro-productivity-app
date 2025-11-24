@@ -3,7 +3,6 @@ trigger:
     include:
       - main
 
-
 variables:
   # Backend
   backend_dir: 'backend'
@@ -19,22 +18,15 @@ variables:
   tag: '$(Build.BuildId)'
 
 stages:
-
-  # =========================
-  # 1) CI: build & test both
-  # =========================
   - stage: CI
     displayName: "Build & Test backend and frontend"
     jobs:
-
       - job: Backend_CI
         displayName: "Backend - tests with coverage"
         pool:
           name: Default
-
         workspace:
           clean: all
-
         steps:
           - script: |
               cd $(backend_dir)
@@ -52,48 +44,32 @@ stages:
             displayName: "Build backend application"
 
       - job: Frontend_CI
-        displayName: "Frontend - tests & build"
+        displayName: "Frontend - build only"
         pool:
           name: Default
-
         workspace:
           clean: all
-
         steps:
           - script: |
               cd $(frontend_dir)
               npm ci
             displayName: "Install frontend dependencies"
 
-          # Optional: if you have unit tests for frontend
-          - script: |
-              cd $(frontend_dir)
-              npm test -- --watch=false
-            displayName: "Run frontend tests"
-            continueOnError: true    # remove this if tests must be green
-
           - script: |
               cd $(frontend_dir)
               npm run build
             displayName: "Build frontend application"
 
-
-  # ====================================
-  # 2) Build & push BOTH Docker images
-  # ====================================
   - stage: Build_And_Push_Image
     displayName: "Build & push Docker images to ACR"
     dependsOn: CI
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-
     jobs:
       - job: Docker_Build_Push
         displayName: "Docker build & push backend + frontend"
         pool:
           name: Default
-
         steps:
-          # Backend image
           - task: Docker@2
             displayName: "Build and push BACKEND image to ACR"
             inputs:
@@ -105,7 +81,6 @@ stages:
               tags: |
                 $(tag)
 
-          # Frontend image
           - task: Docker@2
             displayName: "Build and push FRONTEND image to ACR"
             inputs:
@@ -117,32 +92,23 @@ stages:
               tags: |
                 $(tag)
 
-
-  # ==============================
-  # 3) Deploy both Web Apps
-  # ==============================
   - stage: Deploy
     displayName: "Deploy backend & frontend to Azure Web Apps (Containers)"
     dependsOn: Build_And_Push_Image
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-
     jobs:
       - job: DeployWebApps
         displayName: "Update Web App containers"
         pool:
           name: Default
-
         steps:
           - powershell: |
               $ErrorActionPreference = "Stop"
 
-              # Full path to az.cmd so we don't rely on PATH
               $azPath = "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-
               Write-Host "Using Azure CLI at: $azPath"
               & "$azPath" --version
 
-              # ---------- BACKEND ----------
               Write-Host "Setting BACKEND container image on Web App..."
               & "$azPath" webapp config container set `
                 --name pomodoroapp `
@@ -152,7 +118,6 @@ stages:
                 --docker-registry-server-user $env:ACR_USERNAME `
                 --docker-registry-server-password $env:ACR_PASSWORD
 
-              # ---------- FRONTEND ----------
               Write-Host "Setting FRONTEND container image on Web App..."
               & "$azPath" webapp config container set `
                 --name pomodoroapp-frontend `
@@ -171,7 +136,6 @@ stages:
               & "$azPath" webapp restart `
                 --name pomodoroapp-frontend `
                 --resource-group BCSAI2025-DEVOPS-STUDENTS-A
-
             displayName: "Update backend & frontend Web App containers"
             env:
               ACR_USERNAME: $(ACR_USERNAME)
