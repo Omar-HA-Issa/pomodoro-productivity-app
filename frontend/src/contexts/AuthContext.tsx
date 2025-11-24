@@ -15,10 +15,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (
-    email: string,
-    password: string
-  ) => Promise<{ error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (
     email: string,
     password: string,
@@ -54,9 +51,21 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({
-  children,
-}) => {
+async function parseResponse<T = any>(
+  response: Response
+): Promise<{ data: T | null; text: string }> {
+  const text = await response.text();
+  if (!text) return { data: null, text: "" };
+
+  try {
+    const data = JSON.parse(text) as T;
+    return { data, text };
+  } catch {
+    return { data: null, text };
+  }
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -108,14 +117,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         body: JSON.stringify({ email, password }),
       });
 
-      const data = (await response.json()) as {
+      const { data, text } = await parseResponse<{
         error?: string;
         session?: { access_token: string };
         user?: User;
-      };
+      }>(response);
 
-      if (!response.ok || !data.session || !data.user) {
-        return { error: data.error || "Login failed" };
+      if (!response.ok || !data?.session || !data?.user) {
+        const msg =
+          data?.error ||
+          text ||
+          (response.status === 401
+            ? "Invalid email or password"
+            : "Login failed");
+        return { error: msg };
       }
 
       localStorage.setItem("auth_token", data.session.access_token);
@@ -144,12 +159,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         }),
       });
 
-      const data = (await response.json()) as { error?: string };
+      const { data, text } = await parseResponse<{ error?: string }>(
+        response
+      );
 
       if (!response.ok) {
-        return { error: data.error || "Signup failed" };
+        const msg =
+          data?.error ||
+          text ||
+          (response.status === 400
+            ? "Invalid signup data"
+            : "Signup failed");
+        return { error: msg };
       }
 
+      // backend says: "Check email for confirmation"
       return {};
     } catch {
       return { error: "Network error. Please try again." };
@@ -166,7 +190,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         });
       }
     } catch (err) {
-      // optional: log error
       console.error("Signout error:", err);
     } finally {
       localStorage.removeItem("auth_token");
@@ -175,9 +198,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, signIn, signUp, signOut }}
-    >
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
