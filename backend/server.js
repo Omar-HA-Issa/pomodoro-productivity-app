@@ -17,7 +17,7 @@ const app = express();
 // CORS CONFIG
 const corsOrigins = (
   process.env.CORS_ORIGINS ||
-  "http://localhost:5173,http://localhost:5174"
+  "http://localhost:5173,http://localhost:5174,https://pomodoroapp-frontend-bbfjhdbgc8c3bvh0.westeurope-01.azurewebsites.net"
 )
   .split(",")
   .map((s) => s.trim());
