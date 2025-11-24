@@ -89,6 +89,7 @@ stages:
               repository: "$(frontend_imageRepository)"
               dockerfile: "frontend/Dockerfile"
               buildContext: "$(Build.SourcesDirectory)/frontend"
+              arguments: '--build-arg VITE_API_BASE=https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api'
               tags: |
                 $(tag)
 
