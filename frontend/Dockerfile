@@ -25,7 +25,10 @@ RUN echo "Build timestamp: $(date)" && npm run build
 # Production stage
 FROM nginx:alpine
 
-# Copy built files
+# Copy nginx configuration for SPA routing
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
