@@ -40,7 +40,7 @@ const Dashboard: React.FC = () => {
 
   // API Configuration
   const API_BASE = process.env.NODE_ENV === 'production'
-    ? 'https://your-production-url.com'
+    ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net'
     : 'http://localhost:8000';
 
   // Fetch dashboard data on mount
