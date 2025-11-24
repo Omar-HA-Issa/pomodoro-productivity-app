@@ -53,8 +53,10 @@ const Schedule: React.FC = () => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // ============================== API ===============================
-  const API_BASE =
-  "https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api";
+  const API_BASE = import.meta.env.VITE_API_BASE ||
+    (import.meta.env.PROD
+      ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api'
+      : 'http://localhost:8000/api');
 
   async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const token = localStorage.getItem('auth_token');
@@ -83,8 +85,8 @@ const Schedule: React.FC = () => {
     (async () => {
       try {
         const [tpls, sched] = await Promise.all([
-          api<SessionTemplate[]>('/api/sessions'),
-          api<ScheduledSession[]>('/api/schedule'),
+          api<SessionTemplate[]>('/sessions'),
+          api<ScheduledSession[]>('/schedule'),
         ]);
         setTemplates(tpls || []);
         setSchedule(sched || []);
@@ -142,7 +144,7 @@ const Schedule: React.FC = () => {
     }
 
     try {
-      const created = await api<ScheduledSession>('/api/schedule', {
+      const created = await api<ScheduledSession>('/schedule', {
         method: 'POST',
         body: JSON.stringify({ session_id: Number(templateId), start_datetime: startISO, duration_min: mins }),
       });
@@ -154,7 +156,7 @@ const Schedule: React.FC = () => {
   async function toggleDone(id: number) {
     const s = schedule.find(x => x.id === id); if (!s) return;
     try {
-      await api(`/api/schedule/${id}`, {
+      await api(`/schedule/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
           session_id: s.session_id,
@@ -171,7 +173,7 @@ const Schedule: React.FC = () => {
   async function removeItem(id: number) {
     try {
       const token = localStorage.getItem('auth_token');
-      const res = await fetch(`${API_BASE}/api/schedule/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE}/schedule/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`Delete failed: ${res.statusText}`);
       setSchedule(prev => prev.filter(x => x.id !== id));
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to delete'); }

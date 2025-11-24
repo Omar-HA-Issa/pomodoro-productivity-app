@@ -39,10 +39,10 @@ const Dashboard: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
 
   // API Configuration
-  const API_BASE = import.meta.env.VITE_API_BASE?.replace('/api', '') ||
+  const API_BASE = import.meta.env.VITE_API_BASE ||
     (import.meta.env.PROD
-      ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net'
-      : 'http://localhost:8000');
+      ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api'
+      : 'http://localhost:8000/api');
 
   // Fetch dashboard data on mount
   useEffect(() => {
@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
       }
 
       // Fetch user profile from auth endpoint
-      const response = await fetch(`${API_BASE}/api/auth/profile`, {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -90,7 +90,7 @@ const Dashboard: React.FC = () => {
       }
 
       // Fetch all dashboard data in one API call
-      const response = await fetch(`${API_BASE}/api/dashboard/overview`, {
+      const response = await fetch(`${API_BASE}/dashboard/overview`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

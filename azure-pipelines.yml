@@ -149,4 +149,5 @@ stages:
             displayName: "Update backend & frontend Web App containers"
             env:
               ACR_USERNAME: $(ACR_USERNAME)
-              ACR_PASSWORD: $(ACR_PASSWORD)
+              ACR_PASSWORD: $(ACR_PASSWORD)2
+

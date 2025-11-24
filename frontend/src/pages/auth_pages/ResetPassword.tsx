@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE = import.meta.env.VITE_API_BASE ||
+  (import.meta.env.PROD
+    ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api'
+    : 'http://localhost:8000/api');
+
 const passwordRequirements = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
   { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
@@ -79,7 +84,7 @@ const ResetPassword: React.FC = () => {
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
 
-      const response = await fetch('http://localhost:8000/api/auth/update-password', {
+      const response = await fetch(`${API_BASE}/auth/update-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
