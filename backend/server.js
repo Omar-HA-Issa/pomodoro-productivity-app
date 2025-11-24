@@ -13,9 +13,8 @@ const insightsRoutes = require("./routes/insights.routes");
 
 const app = express();
 
-/* ---------------------------
-   CORS CONFIG
----------------------------- */
+
+// CORS CONFIG
 const corsOrigins = (
   process.env.CORS_ORIGINS ||
   "http://localhost:5173,http://localhost:5174"
@@ -32,14 +31,18 @@ app.use(
   })
 );
 
-// IMPORTANT: handle preflight for all routes
-app.options("*", cors());
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.use(express.json());
 
-/* ---------------------------
-   PROMETHEUS METRICS
----------------------------- */
+
+
+//PROMETHEUS METRICS
 client.collectDefaultMetrics();
 
 const httpRequestCounter = new client.Counter({
@@ -86,9 +89,8 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ---------------------------
-   HEALTH + METRICS
----------------------------- */
+
+//HEALTH + METRICS
 const healthHandler = (_req, res) => {
   res.status(200).json({
     status: "ok",
@@ -111,9 +113,7 @@ app.get("/metrics", async (_req, res) => {
   }
 });
 
-/* ---------------------------
-   ROUTES
----------------------------- */
+// ROUTES
 app.use("/api/auth", authRouter);
 app.use("/api/timer", requireAuth, timerRouter);
 app.use("/api/sessions", requireAuth, sessionsRouter);
@@ -123,9 +123,7 @@ app.use("/api/insights", insightsRoutes);
 
 module.exports = app;
 
-/* ---------------------------
-   SERVER START
----------------------------- */
+//SERVER START
 if (require.main === module) {
   const PORT = process.env.PORT || 8000;
   app.listen(PORT, () => {
