@@ -1,5 +1,6 @@
-export const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+const API_BASE =
+  "https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api";
+
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 

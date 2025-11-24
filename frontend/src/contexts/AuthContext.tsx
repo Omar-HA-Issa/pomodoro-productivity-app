@@ -29,7 +29,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(
 );
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+  "https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api";
 
 type JwtPayload = {
   sub: string;

@@ -53,7 +53,9 @@ const Schedule: React.FC = () => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // ============================== API ===============================
-  const API_BASE = import.meta?.env?.VITE_API_BASE || 'http://localhost:8000';
+  const API_BASE =
+  "https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net/api";
+
   async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const token = localStorage.getItem('auth_token');
     if (!token) throw new Error('Please sign in to use the schedule.');
