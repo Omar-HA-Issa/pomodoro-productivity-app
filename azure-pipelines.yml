@@ -119,6 +119,12 @@ stages:
               Write-Host "Using Azure CLI at: $azPath"
               & "$azPath" --version
 
+              Write-Host "Configuring CORS environment variable for backend..."
+              & "$azPath" webapp config appsettings set `
+                --name pomodoroapp `
+                --resource-group BCSAI2025-DEVOPS-STUDENTS-A `
+                --settings CORS_ORIGINS="https://pomodoroapp-frontend-bbfjhdbgc8c3bvh0.westeurope-01.azurewebsites.net"
+
               Write-Host "Setting BACKEND container image on Web App..."
               & "$azPath" webapp config container set `
                 --name pomodoroapp `
@@ -149,5 +155,5 @@ stages:
             displayName: "Update backend & frontend Web App containers"
             env:
               ACR_USERNAME: $(ACR_USERNAME)
-              ACR_PASSWORD: $(ACR_PASSWORD)2
+              ACR_PASSWORD: $(ACR_PASSWORD)
 
