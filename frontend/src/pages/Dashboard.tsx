@@ -39,9 +39,10 @@ const Dashboard: React.FC = () => {
   const [userName, setUserName] = useState<string>('');
 
   // API Configuration
-  const API_BASE = process.env.NODE_ENV === 'production'
-    ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net'
-    : 'http://localhost:8000';
+  const API_BASE = import.meta.env.VITE_API_BASE?.replace('/api', '') ||
+    (import.meta.env.PROD
+      ? 'https://pomodoroapp-hyekcsauhufjdgbd.westeurope-01.azurewebsites.net'
+      : 'http://localhost:8000');
 
   // Fetch dashboard data on mount
   useEffect(() => {
